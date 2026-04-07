@@ -83,12 +83,12 @@ React.useEffect(() => {
         Chi tiết bài làm
       </h3>
     </div>
-    console.log("DETAILS:", result.details);
+    
     {questions.map((q, idx) => {
   const detail = result.details?.[idx];
   const u = detail?.answer ?? null;
 
-  console.log("DETAIL:", detail);
+ console.log("DETAILS:", result.details);
 
   if (!detail) {
     return <div key={q.id}>⚠️ Thiếu dữ liệu câu {idx + 1}</div>;

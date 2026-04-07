@@ -68,6 +68,7 @@ const App: React.FC = () => {
   setActiveStudent(student);
   setQuestions(selectedQuestions);
   setCurrentView('exam'); // ✅ ĐÚNG hoặc Set
+  setCurrentView('quiz');
  // Đảm bảo chuyển sang view 'exam' để dùng ExamRoom
 };
 

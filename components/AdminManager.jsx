@@ -209,26 +209,14 @@ const chuan_hoa = (data) => ({
 
   // --- 1. XỬ LÝ WORD ---===========================================================================================================================================================================
  const findQuestion = async () => {
-  setLoading(true);
-  try {
-    const resp = await fetch(`${KETQUA_URL}?action=getQuestionById&id=${editForm.idquestion}`);
-    const res = await resp.json();
-    if (res.status === 'success') {
-      // 💡 Hợp nhất dữ liệu thông minh
-      setEditForm({ 
-        ...editForm,     // Giữ ID đang gõ
-        ...res.data,     // Đè dữ liệu mới từ server lên
-        idquestion: res.data.id || res.data.idquestion, 
-        id: res.data.id || res.data.idquestion 
-      });
-      setTimeout(() => window.MathJax?.typesetPromise(), 200);
-    } else {
-      alert("Không tìm thấy!");
-    }
-  } catch (e) {
-    alert("Lỗi kết nối!");
-  } finally { setLoading(false); }
-};
+    setLoading(true);
+    try {
+      const resp = await fetch(`${KETQUA_URL}?action=getQuestionById&id=${editForm.idquestion}`);
+      const res = await resp.json();
+      if (res.status === 'success') setEditForm(res.data);
+      else alert("Không tìm thấy!");
+    } finally { setLoading(false); }
+  };
   // ===========================================================================================================================================tách dữ liệu câu hỏi
   const handleWordParser = (text) => {
   if (!text || !text.trim()) {

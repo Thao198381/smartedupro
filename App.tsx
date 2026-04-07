@@ -99,41 +99,37 @@ const App: React.FC = () => {
     setCurrentView('quiz');
   };
 
-  // Kết thúc bài thi và gửi dữ liệu từ đề ma trận
-  const handleFinishExam = async (matrixResult: ExamResult) => {
+  // Kết thúc bài thi và gửi dữ liệu
+  const handleFinishExam = async (result: ExamResult) => {
+  setExamResult(result);
+  setCurrentView('result');
+  
+  let targetUrl = (result.type === 'quiz') ? DANHGIA_URL : KETQUA_URL;
 
-  // 👇 Tạo payload riêng cho MA TRẬN
-  const matrixPayload = {
-    examCode: activeExam?.code || activeExam?.id,   // bắt buộc
-    sbd: activeStudent?.sbd,
-    name: activeStudent?.name,
-    className: activeStudent?.class,
-    score: matrixResult.score ?? 0,
-    totalTime: matrixResult.time ?? 0,
-    details: matrixResult.details ?? []
+  // CHUẨN HÓA DỮ LIỆU TRƯỚC KHI GỬI
+  const payload = {
+    action: "submitExam", // Thêm cái này để GAS nhận diện action
+    timestamp: new Date().toLocaleString('vi-VN'),
+    exams: String(activeExam?.id || result.examCode || "").toUpperCase(),
+    sbd: String(activeStudent?.sbd || ""),
+    name: String(activeStudent?.name || ""),
+    class: String(activeStudent?.class || ""),
+    tongdiem: result.totalScore ?? result.tongdiem ?? 0,
+    time: result.time || 0,
+    idgv: String(activeStudent?.idnumber || ""), 
+    // Gán trực tiếp modeKq ở đây để không bao giờ sai cột I
+    modeKq: String(activeExam?.id || "") + "." + String(activeStudent?.idnumber || "")   
   };
 
-  // 👇 Set riêng cho ResultView
-  setExamResult({
-    score: matrixPayload.score,
-    correct: matrixResult.correct ?? 0,
-    total: matrixResult.total ?? 0,
-    time: matrixPayload.totalTime,
-    type: 'matrix'
-  });
-
-  setCurrentView('result');
-
-  let targetUrl = KETQUA_URL;  
-
   try {
-    await fetch(targetUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify(matrixPayload)
-    });   
-  } catch (e) {
-    console.error("❌ Lỗi gửi kết quả:", e);
+    await fetch(targetUrl, { 
+      method: 'POST', 
+      // Bỏ no-cors nếu GAS của thầy đã hỗ trợ, hoặc để 'text/plain'
+      body: JSON.stringify(payload) 
+    });
+    console.log("✅ Gửi kết quả chuẩn thành công!");
+  } catch (e) { 
+    console.error("❌ Lỗi gửi kết quả:", e); 
   }
 };
 

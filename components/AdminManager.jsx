@@ -279,7 +279,7 @@ setPreviewData(results);
 };
 // ===================================load ngân hàng đề =====================
   const handleLoadQuestions = async () => {
-  const resp = await fetch(`${KETQUA_URL}?action=loadQuestions`);
+  const resp = await fetch(`${DANHGIA_URL}?action=loadQuestions`);
   const res = await resp.json();
 
   if (res.status === 'success') {

@@ -1,271 +1,557 @@
+import React, { useState, useEffect } from 'react';
+import { KETQUA_URL } from '../config';
 
-import React, { useState } from 'react';
-import mammoth from 'mammoth';
-import { DANHGIA_URL, API_ROUTING } from '../config';
-
-interface TeacherWordTaskProps {
-  onBack: () => void;
-}
-
-const TeacherWordTask: React.FC<TeacherWordTaskProps> = ({ onBack }) => {
-  const [step, setStep] = useState<'verify' | 'work'>('verify');
+const TeacherWordTask = ({ onBack }) => {
+  // Thêm vào cùng các state khác
+  const [searchId, setSearchId] = useState(''); // Lưu ID câu hỏi cần sửa lẻ
+const [previewData, setPreviewData] = useState([]);
+const [isReviewing, setIsReviewing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [gvId, setGvId] = useState('');
-  const [gvData, setGvData] = useState<any>(null); 
+  const [idgv, setIdgv] = useState('');
+  const [customLink, setCustomLink] = useState(''); // Để dự phòng nếu cần dán trực tiếp link
+  const [examCode, setExamCode] = useState('');
+  const [rawLGText, setRawLGText] = useState('');
 
-  const [examForm, setExamForm] = useState({
-    exams: '', fulltime: 90, mintime: 30, tab: 3, dateclose: '',
-    MCQ: 12, scoremcq: 0.25, 
-    TF: 4, scoretf: 1.0, 
-    SA: 6, scoresa: 0.5, 
-    IDimglink: ''
+  const [config, setConfig] = useState({
+    numMCQ: 12, scoreMCQ: 0.25,
+    numTF: 4, scoreTF: 1.0,
+    numSA: 6, scoreSA: 0.5,
+    duration: 90,
+    mintime: 60,
+    tab: 2,
+    open: new Date().toISOString().slice(0,16),  // thời gian mở
+    close: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0,16), // thời gian đóng
+    maxthi: 1
   });
 
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  
- // ====== 1. Xác minh GV Word =======
-const handleVerifyW = async () => {
-  if (!gvId) return alert("Vui lòng nhập ID!");
-  setLoading(true);
-  try {
-    // Gọi đến Script Master để check xem GV này là ai, file ở đâu
-    const res = await fetch(`${DANHGIA_URL}?action=checkTeacher&idgv=${gvId}`);
-    const data = await res.json();
-    
-    if (data.status === 'success') {
-      // data.data bao gồm: { name: "Tên GV", link: "Link Spreadsheet riêng" }
-      setGvData(data.data); 
-      setStep('work'); // Chuyển sang bước làm việc
-    } else { 
-      alert(data.message); 
+  const [jsonInputWord, setJsonInputWord] = useState('');
+  const [jsonInputLG, setJsonInputLG] = useState('');
+  // Hàm ép MathJax render lại sau khi dữ liệu thay đổi
+  useEffect(() => {
+    if (isReviewing && window.MathJax) {
+      window.MathJax.typesetPromise();
     }
-  } catch (e) { 
-    alert("Lỗi xác minh hệ thống!"); 
-  } finally { 
-    setLoading(false); 
+  }, [isReviewing, previewData]);
+ // ==================== HÀM SỬA CÂU LẺ (REACT) ====================
+  const handleEditSingleQuestion = async () => {
+
+  if (!idgv || !examCode || !searchId) {
+    alert("Thầy cần nhập đủ: IDGV, Mã đề và ID câu hỏi muốn sửa!");
+    return;
+  }
+
+  const targetUrl = KETQUA_URL;
+
+  if (!targetUrl) {
+    alert("❌ Không tìm thấy API của giáo viên này!");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+
+    const url =
+      `${targetUrl}?action=getSingleQuestion`
+      + `&examCode=${encodeURIComponent(examCode)}`
+      + `&questionId=${encodeURIComponent(searchId)}`;
+
+    const resp = await fetch(url, { method: "GET" });
+
+    const text = await resp.text();
+
+    let res;
+
+    try {
+      res = JSON.parse(text);
+    } catch {
+      throw new Error("API không trả JSON: " + text.substring(0,100));
+    }
+
+    if (res.status === "success" && res.data) {
+
+      let questionString = "";
+
+      if (typeof res.data.question === "object") {
+        questionString = JSON.stringify(res.data.question, null, 2);
+      } else {
+
+        try {
+          const parsed = JSON.parse(res.data.question);
+          questionString = JSON.stringify(parsed, null, 2);
+        } catch {
+          questionString = res.data.question;
+        }
+
+      }
+
+      const singleData = [{
+        id: res.data.id,
+        classTag: res.data.classTag,
+        type: res.data.type,
+        question: questionString
+      }];
+
+      setPreviewData(singleData);
+      setIsReviewing(true);
+
+    } else {
+
+      alert(res.message || "Không tìm thấy câu hỏi này!");
+
+    }
+
+  } catch (e) {
+
+    console.error(e);
+    alert("❌ Lỗi kết nối API: " + e.message);
+
+  } finally {
+
+    setLoading(false);
+
   }
 };
+ 
+  // Tái sử dụng hàm bóc tách của thầy
+  // =========================================================================================================================================
+  const handleWordParser = (text) => {
+  if (!text.trim()) {
+    alert("Dán dữ liệu vào đã thầy ơi!");
+    return;
+  }
 
-// ======= 2. Ghi cấu hình vào file riêng của GV =======
-const handleSaveConfig = async () => {
-  if (!examForm.exams) return alert("Vui lòng nhập mã đề!");
-  const confirmSave = window.confirm(`Lưu cấu hình mã đề [${examForm.exams}]?`);
-  if (!confirmSave) return;
+  // 1️⃣ Tách câu theo }#
+  const rawBlocks = text
+    .split('}#')
+    .map(b => b.trim())
+    .filter(b => b.startsWith('{'))
+    .map(b => b.endsWith('}') ? b : b + '}');
+
+  if (rawBlocks.length === 0) {
+    alert("Không tìm thấy câu hỏi hợp lệ!");
+    return;
+  }
+
+  // 2️⃣ Parse từng block
+  const results = rawBlocks.map((block, index) => {
+    try {
+      const obj = new Function(`return (${block})`)();
+
+      return {
+        id: obj.id || Date.now() + index,
+        classTag: (obj.classTag || "1001.a").trim(),
+        type: obj.type || "short-answer",
+        question: JSON.stringify(obj, null, 2) // 🔥 LƯU NGUYÊN JSON
+      };
+    } catch (e) {
+      console.error("❌ Lỗi parse câu:", block);
+      return null;
+    }
+  }).filter(Boolean);
+
+  if (!results.length) {
+    alert("Parse xong nhưng không có câu nào hợp lệ!");
+    return;
+  }
+
+  // 3️⃣ Gửi thẳng sang GAS
+  setPreviewData(results);
+  setIsReviewing(true);
+};
+
+
+  // ==============================================================================================================================================
+   
+const handleSaveQuestions = async (dataArray) => {
+
+  if (!dataArray || (Array.isArray(dataArray) && dataArray.length === 0)) {
+    alert("Chưa có dữ liệu để nạp!");
+    return;
+  }
 
   setLoading(true);
-  try {
-    const targetUrl = gvData.link || DANHGIA_URL; 
-    
-    // Đẩy idgv và action lên URL để Script dễ bắt
-    const finalUrl = `${targetUrl}?action=saveExamConfig&idgv=${gvId}`;
 
-    const res = await fetch(finalUrl, {
-      method: 'POST',
-      // BỎ no-cors đi thầy nhé
-      body: JSON.stringify(examForm) 
+  try {
+
+    const targetUrl = KETQUA_URL;
+
+    // ⭐ Convert question thành JSON string
+    const formattedData = dataArray.map(q => ({
+      ...q,
+      question: typeof q.question === "object"
+        ? JSON.stringify(q.question)
+        : q.question
+    }));
+
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        action: "saveOnlyQuestions",
+        examCode: examCode,
+        idgv: idgv,
+        questions: formattedData
+      }),
     });
 
-    // Nếu không dùng no-cors, ta có thể thử đọc phản hồi
-    // Nếu vẫn lỗi CORS ở đây thì chỉ cần hiện thông báo "Đã gửi" 
-    // nhưng mã GGGG chắc chắn sẽ vào Sheet vì URL đã rõ ràng.
-    alert("Đã thực hiện lệnh lưu mã đề: " + examForm.exams);
-    
-  } catch (e) { 
-    alert("Lỗi kết nối: " + e.toString()); 
-  } finally { 
-    setLoading(false); 
+    const result = await response.json();
+
+    if (result.status === "success") {
+      alert("✅ Ngon lành: " + result.message);
+       setPreviewData([]);
+       setIsReviewing(false);
+      window.location.replace("https://vietnamexam.vercel.app/");
+    } else {
+      alert("❌ Lỗi Script: " + result.message);
+    }
+
+  } catch (error) {
+
+    console.error("Lỗi fetch:", error);
+    alert("Không kết nối được với Script!");
+
+  } finally {
+
+    setLoading(false);
+
   }
 };
-// ========== xử lý file Word =====
-  const processWordFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLoading(true);
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      // mammoth chuyển word sang HTML, giữ nguyên thẻ <u> (gạch chân) cho đáp án
-      const result = await mammoth.convertToHtml({ arrayBuffer }, { styleMap: ["u => u"] });
-      const html = result.value;
+  // 1.  =====================================================================================================
+  const handleSaveConfig = async (force = false) => {
+  if (!idgv) return alert("❌ Thầy chưa nhập ID Giáo viên!");
+  if (!examCode) return alert("❌ Cần nhập Mã đề!");
+  
+  const targetUrl = KETQUA_URL;
+  if (!targetUrl) return alert("❌ Không tìm thấy Link Script cho ID này!");
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Phân tích HTML từ file Word này và chuyển sang định dạng JSON mảng các câu hỏi.
-      Yêu cầu cực kỳ quan trọng:
-      1. PHẦN I (mcq): Đáp án đúng nằm trong thẻ <u>...</u> (ví dụ: <u>A</u>).
-      2. PHẦN II (true-false): Mỗi câu có 4 ý a,b,c,d. Ý nằm trong <u>...</u> là ĐÚNG (true), ngược lại SAI (false). Output mảng 's' chứa {text: string, a: boolean}.
-      3. PHẦN III (short-answer): Đáp án đúng nằm trong thẻ <u>...</u> hoặc <key=...>.
-      4. LaTeX: Chuyển công thức về dạng MathJax LaTeX ($...$).
-      5. Hình ảnh: Giữ nguyên thẻ <img> nếu có.
-      6. TRẢ VỀ JSON THUẦN MẢNG, KHÔNG CÓ MARKDOWN HAY CHỮ GIẢI THÍCH.
-      
-      Dữ liệu HTML: ${html}`;
+  setLoading(true);
+  try {
+    // Bỏ &force=${force} ở URL cho sạch, đưa hẳn vào body
+    const resp = await fetch(`${targetUrl}?action=saveExamConfig`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ 
+        idgv, 
+        examCode, 
+        config, 
+        force }) // Thêm force vào đây
+    });
+    const res = await resp.json();
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: { 
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                classTag: { type: Type.STRING },
-                type: { type: Type.STRING },
-                question: { type: Type.STRING },
-                o: { type: Type.ARRAY, items: { type: Type.STRING } },
-                a: { type: Type.STRING },
-                s: { type: Type.ARRAY, items: { 
-                  type: Type.OBJECT, 
-                  properties: { text: {type:Type.STRING}, a: {type:Type.BOOLEAN} } 
-                } },
-                loigiai: { type: Type.STRING }
-              },
-              required: ["type", "question"]
-            }
-          }
-        }
-      });
-
-      let rawText = response.text.trim();
-      
-      // LOGIC MẠNH MẼ ĐỂ BÓC TÁCH JSON SẠCH TỪ AI
-      if (rawText.includes("```json")) {
-        rawText = rawText.split("```json")[1].split("```")[0].trim();
-      } else if (rawText.includes("```")) {
-        rawText = rawText.split("```")[1].trim();
+    if (res.status === 'exists') {
+      if (window.confirm("⚠️ Mã đề này đã có cấu hình. Thầy có muốn GHI ĐÈ không?")) {
+        handleSaveConfig(true); // Gọi lại với force = true
       }
-      
-      try {
-        const parsedQuestions = JSON.parse(rawText);
-        setQuestions(parsedQuestions);
-        setPreviewOpen(true);
-      } catch (parseError) {
-        console.error("Lỗi parse JSON:", rawText);
-        throw new Error("Dữ liệu Gemini trả về không phải JSON hợp lệ.");
-      }
-      
-    } catch (err: any) {
-      console.error(err);
-      alert(`Lỗi xử lý file: ${err.message || 'AI không phản hồi đúng định dạng'}. Vui lòng thử lại hoặc dùng file Word gạch chân chuẩn.`);
-    } finally { setLoading(false); }
-  };
+    } else {
+      alert(res.message);
+    }
+  } catch (e) {
+    alert("❌ Lỗi kết nối đến Script giáo viên!");
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const handleFinalUpload = async () => {
-    if (questions.length === 0) return alert("Không có dữ hiệu!");
-    
-    // CẢNH BÁO TRÙM MÃ ĐỀ
-    const confirmUpload = window.confirm(`Bạn chuẩn bị GHI DỮ LIỆU CÂU HỎI vào mã đề [${examForm.exams}].\n\nDữ liệu sẽ được chèn thêm vào Sheets tương ứng.\n\nBấm [OK] để Tiếp tục hoặc [Cancel] để xem lại.`);
-    if (!confirmUpload) return;
+// =================================================bóc lời giải ============================================================================================
+ const handleSolutionParser = (text) => {
+  if (!text || !text.trim()) {
+    alert("❌ Chưa có nội dung LG");
+    return;
+  }
 
-    setLoading(true);
-    try {
-      const payload = { action: 'uploadExamData', idgv: gvId, examCode: examForm.exams, questions };
-      const targetUrl = API_ROUTING[gvId] || DANHGIA_URL;
-      const res = await fetch(`${targetUrl}?action=uploadExamData`, { method: 'POST', body: JSON.stringify(payload) });
-      const result = await res.json();
-      alert(result.message);
-      setPreviewOpen(false);
-    } catch (e) { alert("Lỗi tải lên máy chủ!"); }
-    finally { setLoading(false); }
-  };
+  const blocks = [];
+  let depth = 0;
+  let current = '';
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (ch === '{') {
+      if (depth === 0) current = '';
+      depth++;
+    }
+
+    if (depth > 0) current += ch;
+
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) blocks.push(current.trim());
+    }
+  }
+
+  if (!blocks.length) {
+    alert("❌ Không bóc được block LG nào");
+    return;
+  }
+
+  // 🔥 LƯU MẢNG STRING – KHÔNG PARSE
+  setJsonInputLG(blocks);
+
+  alert(`✅ Đã bóc ${blocks.length} lời giải`);
+};
+
+
+
+  // 3. LƯU LỜI GIẢI từ word ==========================================================================================================================================================
+  const handleUpdateSolutions = async () => {
+  if (!idgv || !examCode) {
+    alert("❌ Thiếu IDGV hoặc mã đề");
+    return;
+  }
+
+  if (!Array.isArray(jsonInputLG) || jsonInputLG.length === 0) {
+    alert("❌ Chưa có LG để nạp");
+    return;
+  }
+
+  const targetUrl = KETQUA_URL;
+  setLoading(true);
+
+  try {
+    const resp = await fetch(targetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        action: "saveOnlySolutions",
+        examCode,
+        solutions: jsonInputLG   // 🔥 ĐÚNG KIỂU
+      })
+    });
+
+    const res = await resp.json();
+    alert(`✅ Đã  lời giải thành công rồi nhé tình yêu!`);
+  } catch (e) {
+    console.error(e);
+    alert("❌ Không kết nối được GAS");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   return (
-    <div className="p-4 md:p-10 max-w-6xl mx-auto font-sans bg-white rounded-[3rem] shadow-2xl my-10 border border-slate-50">
-      <div className="flex justify-between items-center mb-10">
-        <h2 className="text-3xl font-black text-indigo-700 uppercase">Quản lý Giáo Viên & Word</h2>
-        <button onClick={onBack} className="bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-500 px-6 py-2 rounded-full font-black">THOÁT</button>
-      </div>
+    <div className="p-3 md:p-6 bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-2xl max-w-6xl mx-auto border-4 border-slate-50">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 md:mb-6 p-3 md:p-6 bg-slate-900 rounded-[1.5rem] md:rounded-[2.5rem]">
+        
+        {/* CỘT BÊN TRÁI: XÁC MINH & CẤU HÌNH */}
+        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 border-r border-slate-800 pr-4">
+          <div className="space-y-3">
+            <div className="text-[10px] text-emerald-400 font-bold uppercase ml-2">Xác thực hệ thống</div>
+            <input
+  type="text"
+  inputMode="numeric"
+  autoComplete="off"
+  pattern="[0-9]*"
+  className="w-full p-3 md:p-4 min-h-[44px] rounded-xl bg-slate-800 text-white font-bold border border-slate-700 shadow-inner focus:border-emerald-500 outline-none transition-all"
+  placeholder="ID GIÁO VIÊN..."
+  value={idgv}
+  onChange={(e) => setIdgv(e.target.value.trim())}
+/>
+            <input 
+              className="w-full p-4 rounded-xl bg-slate-500 text-white font-black text-center placeholder-slate-300 shadow-inner" 
+              placeholder="MÃ ĐỀ KT (EXAMS)..." 
+              value={examCode} 
+              onChange={e => setExamCode(e.target.value)} 
+            />
+          </div>
 
-      {step === 'verify' ? (
-        <div className="flex flex-col items-center py-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
-          <i className="fas fa-user-shield text-6xl text-indigo-300 mb-6"></i>
-          <input type="text" placeholder="NHẬP ID GIÁO VIÊN..." className="w-full max-w-md p-5 bg-white border-4 border-slate-100 rounded-2xl text-center font-black text-2xl uppercase" value={gvId} onChange={e => setGvId(e.target.value)} />
-          <button onClick={handleVerifyW} 
-            disabled={loading} className="mt-6 px-12 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-xl uppercase">
-            {loading ? 'ĐANG XÁC MINH...' : 'VÀO HỆ THỐNG'}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-white bg-slate-800/50 p-3 rounded-2xl border border-slate-800">
+            <div className="col-span-2 text-emerald-400 font-bold uppercase mb-1 flex justify-between">
+              <span>Cấu hình câu hỏi</span>
+              <i className="fas fa-cog"></i>
+            </div>
+            <div>MCQ: <input type="number" className="w-full bg-slate-900 p-1 rounded border border-slate-700" value={config.numMCQ} onChange={e => setConfig({...config, numMCQ: e.target.value})}/></div>
+            <div>Điểm/câu: <input type="number" className="w-full bg-slate-900 p-1 rounded border border-slate-700" value={config.scoreMCQ} onChange={e => setConfig({...config, scoreMCQ: e.target.value})}/></div>
+            
+            <div>TF: <input type="number" className="w-full bg-slate-900 p-1 rounded border border-slate-700" value={config.numTF} onChange={e => setConfig({...config, numTF: e.target.value})}/></div>
+            <div>Điểm/câu: <input type="number" className="w-full bg-slate-900 p-1 rounded border border-slate-700" value={config.scoreTF} onChange={e => setConfig({...config, scoreTF: e.target.value})}/></div>
+            
+            <div>SA: <input type="number" className="w-full bg-slate-900 p-1 rounded border border-slate-700" value={config.numSA} onChange={e => setConfig({...config, numSA: e.target.value})}/></div>
+            <div>Điểm/câu: <input type="number" className="w-full bg-slate-900 p-1 rounded border border-slate-700" value={config.scoreSA} onChange={e => setConfig({...config, scoreSA: e.target.value})}/></div>
+
+            <div className="col-span-2 text-orange-400 font-bold uppercase mt-2 border-t border-slate-700 pt-1">Thời gian & Bảo mật</div>
+            <div>Phút thi: <input type="number" className="w-full bg-slate-900 p-1 rounded border border-slate-700 text-orange-300" value={config.duration} onChange={e => setConfig({...config, duration: e.target.value})}/></div>
+            <div>Nộp bài sau: <input type="number" className="w-full bg-slate-900 p-1 rounded border border-slate-700 text-orange-300" value={config.mintime} onChange={e => setConfig({...config, mintime: e.target.value})}/></div>
+             <div>Ngày mở: <input type="datetime-local" className="w-full bg-slate-900 p-1 rounded border border-slate-700 text-[9px]" value={config.open} onChange={e => setConfig({...config, open: e.target.value})}/></div>
+            <div>Lỗi Tab: <input type="number" className="w-full bg-slate-900 p-1 rounded border border-slate-700 text-red-400" value={config.tab} onChange={e => setConfig({...config, tab: e.target.value})}/></div>         
+
+            <div>Ngày đóng: <input type="datetime-local" className="w-full bg-slate-900 p-1 rounded border border-slate-700 text-[9px]" value={config.close} onChange={e => setConfig({...config, close: e.target.value})}/></div>
+            <div>Số lần thi: <input type="number" className="w-full bg-slate-900 p-1 rounded border border-slate-700 text-[9px]" value={config.maxthi} onChange={e => setConfig({...config, maxthi: e.target.value})}/></div>
+          </div>
+        </div>
+
+        {/* CỘT BÊN PHẢI: HÀNH ĐỘNG */}
+        <div className="flex flex-col gap-2 justify-center">
+          <button 
+            disabled={loading}
+            onClick={() => handleSaveConfig(false)} 
+            className="py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all text-sm border-b-4 border-blue-800"
+          >
+            {loading ? "ĐANG LƯU..." : "LƯU CẤU HÌNH ĐỀ"}
+          </button>
+          <button 
+            disabled={loading}
+            onClick={() => handleWordParser(jsonInputWord)}
+            className="py-4 bg-orange-600 text-white rounded-2xl font-black shadow-lg hover:bg-orange-700 active:scale-95 disabled:opacity-50 transition-all text-sm border-b-4 border-orange-800"
+          >
+            REVIEW VÀ LƯU CÂU HỎI
+          </button>
+         <div className="flex flex-col gap-2 p-3 bg-slate-800/50 rounded-2xl border border-slate-700">
+  <div className="text-[10px] text-orange-400 font-bold uppercase ml-1">Sửa nhanh câu lẻ</div>
+  <div className="flex gap-2">
+    <input 
+      type="text"
+      placeholder="ID CÂU..."
+      className="flex-1 bg-slate-900 text-white p-2 rounded-lg text-xs border border-slate-700 outline-none focus:border-orange-500"
+      value={searchId}
+      onChange={e => setSearchId(e.target.value)}
+    />
+    <button 
+      disabled={loading}
+      onClick={handleEditSingleQuestion}
+      className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold text-[10px] hover:bg-orange-700 active:scale-95 transition-all shadow-lg"
+    >
+     TÌM KIẾM
+    </button>
+  </div>
+</div>
+          <button
+          disabled={loading}
+          onClick={handleUpdateSolutions}
+          className="py-4 bg-purple-600 text-white rounded-2xl font-black"
+          >
+          CẬP NHẬT LỜI GIẢI
+        </button>
+
+          <button 
+            onClick={onBack} 
+            className="w-full py-2 mt-2 bg-red-500/10 text-red-400 rounded-xl text-xs font-bold hover:bg-red-500/20 transition-all"
+          >
+            QUAY VỀ TRANG CHỦ
           </button>
         </div>
-      ) : (
-        <div className="space-y-10 animate-fade-in">
-          {/* CẤU HÌNH ĐỀ THI - HÀNG 1 ĐẦY ĐỦ MCQ, TF, SA */}
-          <div className="bg-indigo-50 p-8 rounded-[3rem] border border-indigo-100 shadow-sm">
-            <h3 className="text-xl font-black text-indigo-900 uppercase mb-6 flex items-center gap-2">
-               <i className="fas fa-cog"></i> Cấu hình đề thi (Sheet Exams)
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <div className="col-span-2">
-                <label className="text-[10px] font-black text-indigo-400 uppercase ml-2">Mã đề (exams)</label>
-                <input className="w-full p-3 rounded-xl border-none shadow-inner font-bold" value={examForm.exams} onChange={e=>setExamForm({...examForm, exams: e.target.value})} placeholder="VD: GK1_TOAN12" />
-              </div>
-              <div><label className="text-[10px] font-black text-indigo-400 uppercase ml-2">T.Gian (phút)</label><input type="number" className="w-full p-3 rounded-xl border-none shadow-inner font-bold" value={examForm.fulltime} onChange={e=>setExamForm({...examForm, fulltime: parseInt(e.target.value)})} /></div>
-              <div><label className="text-[10px] font-black text-indigo-400 uppercase ml-2">Nộp tối thiểu</label><input type="number" className="w-full p-3 rounded-xl border-none shadow-inner font-bold" value={examForm.mintime} onChange={e=>setExamForm({...examForm, mintime: parseInt(e.target.value)})} /></div>
-              <div><label className="text-[10px] font-black text-indigo-400 uppercase ml-2">G.Hạn Tab</label><input type="number" className="w-full p-3 rounded-xl border-none shadow-inner font-bold" value={examForm.tab} onChange={e=>setExamForm({...examForm, tab: parseInt(e.target.value)})} /></div>
-              <div><label className="text-[10px] font-black text-indigo-400 uppercase ml-2">Ngày đóng</label><input type="date" className="w-full p-3 rounded-xl border-none shadow-inner font-bold" value={examForm.dateclose} onChange={e=>setExamForm({...examForm, dateclose: e.target.value})} /></div>
-              
-              <div className="bg-blue-100/50 p-2 rounded-xl">
-                <label className="text-[10px] font-black text-blue-500 uppercase ml-2">MCQ (Số câu)</label>
-                <input type="number" className="w-full p-2 rounded-lg font-bold" value={examForm.MCQ} onChange={e=>setExamForm({...examForm, MCQ: parseInt(e.target.value)})} />
-                <label className="text-[9px] font-black text-blue-400 uppercase ml-2">Điểm/câu</label>
-                <input type="number" step="0.01" className="w-full p-2 rounded-lg font-bold" value={examForm.scoremcq} onChange={e=>setExamForm({...examForm, scoremcq: parseFloat(e.target.value)})} />
-              </div>
+      </div>
 
-              <div className="bg-orange-100/50 p-2 rounded-xl">
-                <label className="text-[10px] font-black text-orange-600 uppercase ml-2">TF (Số câu)</label>
-                <input type="number" className="w-full p-2 rounded-lg font-bold" value={examForm.TF} onChange={e=>setExamForm({...examForm, TF: parseInt(e.target.value)})} />
-                <label className="text-[9px] font-black text-orange-400 uppercase ml-2">Điểm tối đa</label>
-                <input type="number" step="0.01" className="w-full p-2 rounded-lg font-bold" value={examForm.scoretf} onChange={e=>setExamForm({...examForm, scoretf: parseFloat(e.target.value)})} />
-              </div>
-
-              <div className="bg-purple-100/50 p-2 rounded-xl">
-                <label className="text-[10px] font-black text-purple-600 uppercase ml-2">SA (Số câu)</label>
-                <input type="number" className="w-full p-2 rounded-lg font-bold" value={examForm.SA} onChange={e=>setExamForm({...examForm, SA: parseInt(e.target.value)})} />
-                <label className="text-[9px] font-black text-purple-400 uppercase ml-2">Điểm/câu</label>
-                <input type="number" step="0.01" className="w-full p-2 rounded-lg font-bold" value={examForm.scoresa} onChange={e=>setExamForm({...examForm, scoresa: parseFloat(e.target.value)})} />
-              </div>
-
-              <div className="col-span-3">
-                <label className="text-[10px] font-black text-indigo-400 uppercase ml-2">ID Thư mục Drive (Lưu ảnh)</label>
-                <input className="w-full p-3 rounded-xl border-none shadow-inner font-bold" value={examForm.IDimglink} onChange={e=>setExamForm({...examForm, IDimglink: e.target.value})} placeholder="Chỉ dán mã ID ví dụ: 1abc...2def" />
+      {/* KHU VỰC TEXTAREA */}
+     {/* KHU VỰC TEXTAREA */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div className="group">
+    <label className="text-xs font-bold text-slate-500 ml-4 group-focus-within:text-orange-500 transition-colors uppercase">Nội dung câu hỏi</label>
+    <textarea
+      className="w-full h-80 p-5 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 mt-2 shadow-inner focus:border-orange-400 focus:bg-white outline-none transition-all text-sm"
+      placeholder="Ctrl + V nội dung từ file Word Latex vào đây..."
+      value={jsonInputWord}
+      onChange={e => setJsonInputWord(e.target.value)}
+    />
+  </div>
+  <div className="group">
+    <label className="text-xs font-bold text-slate-500 ml-4 group-focus-within:text-purple-500 transition-colors uppercase">Lời giải chi tiết</label>
+    <textarea 
+  className="w-full h-96 p-6 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 mt-2 shadow-inner focus:border-purple-400 focus:bg-white outline-none transition-all text-sm font-mono" 
+  placeholder="Dán lời giải vào đây..."
+  value={rawLGText}
+  onChange={(e) => {
+     setRawLGText(e.target.value);
+     handleSolutionParser(e.target.value);
+  }} 
+/>
+  </div>
+</div>
+      {/* MODAL REVIEW */}
+      {isReviewing && (
+        <div className="fixed inset-0 bg-slate-900/95 z-[999] p-4 flex items-center justify-center">
+          <div className="w-full max-w-6xl bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col h-[90vh]">
+            
+            <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
+              <h2 className="font-bold">KIỂM TRA NỘI DUNG</h2>
+              <div className="flex gap-2">
+                <button onClick={() => setIsReviewing(false)} className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600 transition-colors">ĐÓNG</button>
+                <button 
+                  onClick={() => handleSaveQuestions(previewData)} 
+                  className="px-6 py-2 bg-emerald-500 rounded-lg font-bold hover:bg-emerald-600 transition-colors"
+                 
+                >
+                   {loading ? "ĐANG LƯU..." : "LƯU VÀO SHEET"}
+                </button>
               </div>
             </div>
-            <button onClick={handleSaveConfig} className="mt-6 w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-lg hover:brightness-110 active:scale-95 transition-all">Lưu cấu hình & Kiểm tra mã đề</button>
+
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-100 space-y-6">
+              {previewData.map((item, idx) => {
+                let content = {};
+                try { content = new Function(`return (${item.question})`)(); } catch (e) { content = { question: "Lỗi JSON!" }; }
+                
+                return (
+                  <div key={idx} className="bg-white p-4 rounded-2xl shadow grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
+                    <span className="absolute -left-2 top-2 bg-emerald-500 text-white text-[10px] px-2 py-1 rounded-full z-10">Câu {idx+1}</span>
+                    
+                    <textarea 
+                      className="w-full h-64 p-3 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                      value={item.question}
+                      onChange={(e) => {
+                        const newData = [...previewData];
+                        newData[idx].question = e.target.value;
+                        setPreviewData(newData);
+                      }}
+                    />
+
+                    <div className="border border-slate-100 p-3 rounded-xl bg-slate-50 overflow-auto h-64">
+                      <div className="text-[10px] font-bold text-slate-400 mb-2 uppercase">Hiển thị thực tế:</div>
+                      <div className="text-sm mb-3 font-medium text-slate-800" dangerouslySetInnerHTML={{ __html: content.question }} />
+                      
+                      {/* Trắc nghiệm MCQ */}
+                      {content.o && !content.s && (
+                        <div className="space-y-1 mb-3">
+                          {content.o.map((opt, oIdx) => (
+                            <div key={oIdx} className="text-xs flex gap-2 p-1.5 bg-white rounded border border-slate-100">
+                              <b className="text-emerald-500">{String.fromCharCode(65 + oIdx)}.</b>
+                              <div dangerouslySetInnerHTML={{ __html: opt }} />
+                            </div>
+                          ))}
+                          <div className="mt-2 pt-2 border-t border-dashed text-red-500 text-xs font-bold">Đáp án: {content.a}</div>
+                        </div>
+                      )}
+
+                     {/* Đúng/Sai TF - Bản sửa lỗi khớp đáp án từ trong mảng s */}
+{content.s && Array.isArray(content.s) && (
+  <div className="space-y-2 mb-3">
+    <div className="text-[10px] text-blue-500 font-bold italic">Dạng Đúng/Sai:</div>
+    {content.s.map((sub, sIdx) => {
+      // THAY ĐỔI Ở ĐÂY: Lấy đáp án trực tiếp từ sub.a thay vì content.a[sIdx]
+      const ans = sub.a; 
+      
+      return (
+        <div key={sIdx} className="text-xs p-2 bg-blue-50/50 rounded-lg border border-blue-100 flex flex-col gap-1">
+          <div className="flex gap-2">
+            <b className="text-blue-600">{String.fromCharCode(97 + sIdx)})</b>
+            <div dangerouslySetInnerHTML={{ __html: sub.text || sub }} />
           </div>
-
-          {/* NHẬP FILE WORD - TỰ ĐỘNG CHUYỂN JSON */}
-          <div className="bg-emerald-50 p-8 rounded-[3rem] border border-emerald-100 shadow-sm">
-            <h3 className="text-xl font-black text-emerald-900 uppercase mb-6 flex items-center gap-2">
-               <i className="fas fa-file-word"></i> Chuyển đổi Word sang JSON và Ghi Sheet
-            </h3>
-            <div className="flex flex-col items-center justify-center border-4 border-dashed border-emerald-200 rounded-[2.5rem] p-10 bg-white relative hover:bg-emerald-50 transition-all">
-              <input type="file" accept=".docx" className="absolute inset-0 opacity-0 cursor-pointer" onChange={processWordFile} disabled={loading} />
-              <i className="fas fa-cloud-upload-alt text-6xl text-emerald-300 mb-4"></i>
-              <p className="font-black text-emerald-600 uppercase text-center">
-                {loading ? 'AI ĐANG PHÂN TÍCH FILE WORD...' : 'CHỌN FILE ĐỀ THI (.DOCX) ĐỂ TỰ ĐỘNG CHUYỂN JSON'}
-              </p>
-              <p className="text-[10px] text-slate-400 mt-2 italic">Hệ thống sẽ bóc tách LaTeX và Lời giải tự động</p>
-            </div>
+          <div className="ml-5 font-bold text-[10px]">
+            {/* Kiểm tra giá trị ans */}
+            {(ans === true || ans === "true") ? (
+              <span className="text-emerald-600">● ĐÚNG</span>
+            ) : (ans === false || ans === "false") ? (
+              <span className="text-red-600">● SAI</span>
+            ) : (
+              <span className="text-slate-400 font-normal">Chưa xác định: {JSON.stringify(ans)}</span>
+            )}
           </div>
         </div>
-      )}
+      );
+    })}
+  </div>
+)}
 
-      {previewOpen && (
-        <div className="fixed inset-0 z-[300] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white w-full h-full max-w-7xl rounded-[3rem] flex flex-col overflow-hidden animate-fade-in shadow-2xl">
-            <div className="bg-slate-50 p-6 border-b flex justify-between items-center">
-              <h3 className="text-xl font-black text-slate-800 uppercase italic">Kiểm tra {questions.length} câu hỏi đã bóc tách (Mã đề: {examForm.exams})</h3>
-              <div className="flex gap-4">
-                <button onClick={() => setPreviewOpen(false)} className="px-6 py-2 bg-slate-200 rounded-xl font-bold uppercase text-xs">Hủy</button>
-                <button onClick={handleFinalUpload} className="px-8 py-2 bg-emerald-600 text-white rounded-xl font-bold uppercase text-xs">Xác nhận ghi vào Sheets</button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50 space-y-4">
-              {questions.map((q, idx) => (
-                <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 font-mono text-[11px]">
-                  <p className="text-indigo-600 font-black mb-1 uppercase">CÂU {idx + 1} - [{q.type?.toUpperCase()}]</p>
-                  <pre className="whitespace-pre-wrap text-blue-900">{JSON.stringify(q, null, 2)}</pre>
-                </div>
-              ))}
+                      {/* Điền khuyết SA */}
+                      {content.type === "short-answer" && !content.o && !content.s && (
+                        <div className="mt-3 pt-2 border-t border-dashed text-red-500 text-xs font-bold">Đáp án điền: {content.a}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -273,5 +559,4 @@ const handleSaveConfig = async () => {
     </div>
   );
 };
-
 export default TeacherWordTask;

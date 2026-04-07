@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DEFAULT_API_URL, ADMIN_CONFIG } from '../config';
+import { DANHGIA_URL, ADMIN_CONFIG } from '../config';
 
 interface VipModalProps {
   user: any;
@@ -28,7 +28,7 @@ const VipModal: React.FC<VipModalProps> = ({ user, onClose }) => {
     
     setLoading(true);
     try {
-      const res = await fetch(DEFAULT_API_URL, {
+      const res = await fetch(DANHGIA_URL, {
         method: 'POST',
         body: JSON.stringify({
           type: 'requestVip',

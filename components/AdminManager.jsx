@@ -1,11 +1,133 @@
 import React, { useState, useEffect } from 'react';
-import { DANHGIA_URL, API_ROUTING } from '../config';
-import { questionsBank } from '../questions'; // Hoặc đường dẫn file questions của thầy
+import QuestionPreviewBlock from './QuestionPreviewBlock'; // Đảm bảo đúng đường dẫn
+import { DANHGIA_URL, KETQUA_URL } from '../config';
+const EditableSection = ({ title, value, onSave, icon, isSmall }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempValue, setTempValue] = useState(value);
 
+  useEffect(() => { setTempValue(value); }, [value]);
+
+  // Ép MathJax quét lại sau khi render hoặc sửa xong
+ useEffect(() => {
+  if (!isEditing && window.MathJax?.typesetPromise) {
+    const el = document.querySelector('.mathjax-content');
+    if (el) {
+      window.MathJax.typesetPromise([el]);
+    }
+  }
+}, [isEditing, value]);
+
+  const handleSave = () => {
+  onSave(tempValue);
+  setIsEditing(false);
+};
+  // --- HÀM XỬ LÝ NỘI DUNG TỔNG LỰC ---
+  const getHtmlContent = () => {
+  if (!value) return '<span class="opacity-30 italic">Trống...</span>';
+  let content = String(value);
+
+  // 1. Tự động hiển thị ảnh nếu nội dung là link ảnh
+  const imgRegex = /(https?:\/\/[^\s]+?\.(png|jpg|jpeg|gif|webp))/gi;
+  if (!content.includes('<img') && imgRegex.test(content)) {
+    content = content.replace(imgRegex, '<img src="$1" class="max-w-full h-auto rounded-lg my-2 shadow-sm" />');
+  }
+
+  // 2. Hiển thị ĐÁP ÁN ĐÚNG dạng Badge gọn gàng (Đã xóa chữ ĐÁP ÁN/KẾT QUẢ thừa)
+  if (title.toLowerCase().includes("đáp án")) {
+    return `
+      <div class="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl shadow-sm font-bold">
+        <i class="fa-solid fa-check-circle text-[10px] opacity-50"></i>
+        <span>${content}</span>
+      </div>
+    `;
+  }
+
+  // 3. XỬ LÝ PHẦN PHƯƠNG ÁN (JSON)
+  const isOptions = title.toLowerCase().includes("phương án") || title.toLowerCase().includes("options");
+  if (isOptions) {
+    try {
+      const data = typeof value === 'string' ? JSON.parse(value) : value;
+
+      // Câu Đúng/Sai (Mảng Object)
+      if (Array.isArray(data) && typeof data[0] === 'object') {
+        return data.map((item, idx) => `
+          <div class="p-2 mb-2 bg-slate-50 rounded-xl border border-slate-100 shadow-sm">
+            <span class="font-bold text-blue-600">Ý ${idx + 1}: </span>
+            <span class="mathjax-item">${item.text}</span> 
+            <span class="ml-2 font-black ${item.a ? 'text-emerald-600' : 'text-rose-500'}">
+              (${item.a ? 'Đúng' : 'Sai'})
+            </span>
+          </div>
+        `).join('');
+      }
+      
+      // Câu MCQ (Mảng chuỗi)
+      if (Array.isArray(data)) {
+        const labels = ['A', 'B', 'C', 'D'];
+        return `<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1">
+          ${data.map((text, i) => `
+            <div class="p-2 bg-slate-50 rounded-lg border border-slate-100">
+              <b class="text-blue-500">${labels[i] || i}:</b> ${text}
+            </div>
+          `).join('')}
+        </div>`;
+      }
+    } catch (e) { return content; }
+  }
+
+  return content;
+};
+  return (
+    <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-50 transition-all hover:shadow-md mb-4 group">
+      <div className="flex justify-between items-center mb-3">
+        <div className="flex items-center gap-2 text-slate-400 group-hover:text-blue-500 transition-colors">
+          <div className="w-6 h-6 rounded-lg bg-slate-50 flex items-center justify-center">
+            <i className={`fa-solid ${icon} text-[10px]`}></i>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-wider">{title}</span>
+        </div>
+        
+        {/* Nút Sửa: Làm nhỏ lại cho tinh tế */}
+       {!isEditing && (
+  <button
+    onClick={() => setIsEditing(true)}
+    className="px-3 py-1 bg-slate-100 text-slate-500 rounded-lg font-bold text-[9px] hover:bg-blue-600 hover:text-white transition-all"
+  >
+    CHỈNH SỬA
+  </button>
+)}
+        {isEditing && (
+          <div className="flex gap-1">
+             <button onClick={handleSave} className="px-3 py-1 bg-emerald-500 text-white rounded-lg font-bold text-[9px]">LƯU</button>
+             <button onClick={() => setIsEditing(false)} className="px-3 py-1 bg-slate-100 text-slate-400 rounded-lg font-bold text-[9px]">HỦY</button>
+          </div>
+        )}
+      </div>
+
+      <div className="mathjax-content">
+        {isEditing ? (
+         <textarea
+  className={`w-full p-4 md:p-5 bg-slate-50 rounded-2xl text-sm md:text-base outline-none border-2 border-blue-200 text-sm font-medium transition-all focus:bg-white resize-y ${isSmall ? 'min-h-[120px]' : 'min-h-[260px]'}`}
+            value={tempValue}
+            onChange={(e) => setTempValue(e.target.value)}
+            autoFocus
+          />
+        ) : (
+          <div 
+            className="px-1 text-slate-700 text-sm leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: getHtmlContent() }} 
+          />
+        )}
+      </div>
+    </div>
+  );
+};
 const AdminPanel = ({ mode, onBack }) => {
- 
-  // Thêm 'duplicate' và 'delete' vào kiểu dữ liệu của useState
-const [currentTab, setCurrentTab] = useState('cauhoi');
+  const [previewData, setPreviewData] = useState([]);
+  const [previewEdit, setPreviewEdit] = useState(null);
+  const [allQuestions, setAllQuestions] = useState([]);  
+  
+  const [currentTab, setCurrentTab] = useState(mode || 'cauhoi');
   const [loadingMatrix, setLoadingMatrix] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isAdminVerified, setIsAdminVerified] = useState(false);
@@ -15,38 +137,53 @@ const [currentTab, setCurrentTab] = useState('cauhoi');
  
   const [jsonInput, setJsonInput] = useState('');
   const [subjects, setSubjects] = useState([]); // Khai báo này để chứa môn học
- // Bỏ cái ": string" đi là xong thầy nhé
-const normalizeText = (text) => {
-  return text
-    .toLowerCase()
-    .replace(/\s+/g, '') 
-    .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "") 
-    .trim();
-};
+  const [duplicateGroups, setDuplicateGroups] = useState([]); // Câu trùng
+   const [expandedGroupId, setExpandedGroupId] = useState(null); // Câu trùng
+  const [previewQuestion, setPreviewQuestion] = useState(null); // Lưu câu hỏi đang xem
+  const [showPreview, setShowPreview] = useState(false);        // Trạng thái đóng/mở
+  const [editForm, setEditForm] = useState({ 
+    idquestion: '', classTag: '', question: '', options: '', answer: '', loigiai: '' 
+  });
   useEffect(() => {
-  // Hàm này sẽ chạy ngay khi thầy mở trang Admin
+  if (showPreview && window.MathJax) {
+    // Chờ một chút để Modal render xong HTML rồi mới quét Latex
+    setTimeout(() => {
+      window.MathJax.typesetPromise();
+    }, 100);
+  }
+}, [showPreview, previewQuestion]);
+  // Thêm cái này vào trong AdminPanel
+useEffect(() => {
+  if (editForm.idquestion && window.MathJax) {
+    const timer = setTimeout(() => {
+      window.MathJax.typesetPromise().catch((err) => console.log(err));
+    }, 500); // Tăng delay lên một chút để React render xong HTML từ JSON
+    return () => clearTimeout(timer);
+  }
+}, [editForm]);
+  // Bất cứ khi nào nhận data từ server:
+const chuan_hoa = (data) => ({
+  ...data,
+  idquestion: data.id, // Tạo ra idquestion từ id
+  id: data.id          // Giữ nguyên id
+});
+  // ========= Chọn môn học ======================
+  useEffect(() => {
   const loadConfig = async () => {
     try {
-      const response = await fetch(`${API_ROUTING[admin1]}?action=getAppConfig`, {
-        method: 'GET',
-        redirect: 'follow' // Bắt buộc phải có để tránh lỗi CORS
-      });
+      const response = await fetch(`${KETQUA_URL}?action=getAppConfig`);
       const result = await response.json();
       if (result.status === "success") {
         setSubjects(result.data.topics);
-        console.log("✅ Đã nạp cấu hình môn học thành công!");
+        console.log("✅ Đã nạp cấu hình thành công!");
       }
     } catch (err) {
       console.error("❌ Lỗi nạp Config:", err);
     }
   };
-
   loadConfig();
-}, []); // Dấu ngoặc vuông này đảm bảo nó chỉ chạy 1 lần duy nhất khi load trang 
-
-  const [editForm, setEditForm] = useState({ 
-    idquestion: '', classTag: '', question: '', phuongan: '', dadung: '', loigiai: '' 
-  });
+}, []);
+  
   const [gvInfo, setGvInfo] = useState({ id: '', pass: '' });  
   const [maTranForm, setMaTranForm] = useState({
   makiemtra: '',
@@ -70,51 +207,29 @@ const normalizeText = (text) => {
     if (mode) setCurrentTab(mode);
   }, [mode]);
 
-  // --- 1. XỬ LÝ WORD ---
-  const findQuestion = async () => {
-    setLoading(true);
-    try {
-      const resp = await fetch(`${DANHGIA_URL}?action=getQuestionById&id=${editForm.idquestion}`);
-      const res = await resp.json();
-      if (res.status === 'success') setEditForm(res.data);
-      else alert("Không tìm thấy!");
-    } finally { setLoading(false); }
-  };
-  const handleUpdateQuestion = async () => {
+  // --- 1. XỬ LÝ WORD ---===========================================================================================================================================================================
+ const findQuestion = async () => {
   setLoading(true);
   try {
-    // Chỉ để data trong payload
-    const payload = {
-      data: {
-        idquestion: editForm.idquestion,
-        classTag: editForm.classTag || "",
-        question: editForm.question,
-        datetime: editForm.datetime || "",
-        loigiai: editForm.loigiai || ""
-      }
-    };
-
-    // Thêm ?action=updateQuestion vào cuối URL
-    const res = await fetch(`${DANHGIA_URL}?action=updateQuestion`, {
-      method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload)
-    });
-    
-    const result = await res.json();
-    if(result.status === 'success') {
-      alert("Cập nhật thành công!");
-      // Thầy nên thêm logic đóng Modal hoặc cập nhật lại danh sách tại đây
+    const resp = await fetch(`${KETQUA_URL}?action=getQuestionById&id=${editForm.idquestion}`);
+    const res = await resp.json();
+    if (res.status === 'success') {
+      // 💡 Hợp nhất dữ liệu thông minh
+      setEditForm({ 
+        ...editForm,     // Giữ ID đang gõ
+        ...res.data,     // Đè dữ liệu mới từ server lên
+        idquestion: res.data.id || res.data.idquestion, 
+        id: res.data.id || res.data.idquestion 
+      });
+      setTimeout(() => window.MathJax?.typesetPromise(), 200);
+    } else {
+      alert("Không tìm thấy!");
     }
-    
-  } catch (error) {
-    console.error("Lỗi cập nhật:", error);
-  } finally {
-    setLoading(false);
-  }
-};  
-// ===========================================================================================================================================tách dữ liệu câu hỏi
+  } catch (e) {
+    alert("Lỗi kết nối!");
+  } finally { setLoading(false); }
+};
+  // ===========================================================================================================================================tách dữ liệu câu hỏi
   const handleWordParser = (text) => {
   if (!text || !text.trim()) {
     setJsonInput('');
@@ -159,11 +274,12 @@ const normalizeText = (text) => {
     }
   }).filter(Boolean);
 
-  setJsonInput(JSON.stringify(results, null, 2));
+ setJsonInput(JSON.stringify(results, null, 2));
+setPreviewData(results);
 };
 // ===================================load ngân hàng đề =====================
   const handleLoadQuestions = async () => {
-  const resp = await fetch(`${DANHGIA_URL}?action=loadQuestions`);
+  const resp = await fetch(`${KETQUA_URL}?action=loadQuestions`);
   const res = await resp.json();
 
   if (res.status === 'success') {
@@ -181,9 +297,9 @@ const normalizeText = (text) => {
   setLoading(true);
   try {
     // Phải parse jsonInput thành mảng Object trước khi gửi
-    const dataArray = JSON.parse(jsonInput); 
+    const dataArray = previewData;
     
-    const resp = await fetch(`${DANHGIA_URL}?action=saveQuestions`, {
+    const resp = await fetch(`${KETQUA_URL}?action=saveQuestions`, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' }, 
       body: JSON.stringify(dataArray) 
@@ -225,7 +341,7 @@ const handleUploadLG = async () => {
     }).filter(item => item.id !== null);
 
     // Cách thầy đề xuất: Đưa action lên URL cho chắc chắn
-    const resp = await fetch(`${DANHGIA_URL}?action=saveLG`, {
+    const resp = await fetch(`${KETQUA_URL}?action=saveLG`, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(itemsToUpload) // Chỉ gửi mảng phẳng thôi
@@ -238,119 +354,181 @@ const handleUploadLG = async () => {
   finally { setLoading(false); }
 };
 
-  // Tìm câu trùng
-  const handleFindDuplicates = () => {
-  const groups = []; // Chứa các nhóm câu trùng
-  const bank = questionsBank;
-  const processed = new Set();
-
-  for (let i = 0; i < bank.length; i++) {
-    if (processed.has(bank[i].id)) continue;
-    let currentGroup = [bank[i]];
-
-    for (let j = i + 1; j < bank.length; j++) {
-      const q1 = bank[i];
-      const q2 = bank[j];
-
-      // Tiêu chuẩn "Mềm" của thầy:
-      const sameAnswer = q1.loigiai === q2.loigiai; // Nếu thầy lưu đáp án trong loigiai
-      const similarContent = checkTextSimilarity(q1.question, q2.question) > 0.9;
-
-      if (sameAnswer || similarContent) {
-        currentGroup.push(q2);
-        processed.add(q2.id);
+  // --- 2. XÁC MINHXỬ LÝ NHẬP CÂU HỎI & SỬA LẺ (Giữ nguyên logic của thầy) ---
+ const handleVerifyAdminOTP = async () => {
+  if (!otp) return alert("Vui lòng nhập mật khẩu!");
+  
+  setLoading(true);
+  try {
+    // Gửi tham số otp lên để Server đối chiếu với biến ADMIN_PASSWORD_DEFAULT
+    const resp = await fetch(`${DANHGIA_URL}?action=checkAdminOTP&otp=${encodeURIComponent(otp.trim())}`);
+    const res = await resp.json();
+    
+    if (res.status === "success") {
+      if (res.verified === true) {
+        setIsAdminVerified(true);
+        // Có thể xóa otp sau khi verify thành công để bảo mật
+        setOtp(""); 
+      } else {
+        alert("Mật khẩu Admin không chính xác!");
       }
+    } else {
+      alert("Lỗi phản hồi từ hệ thống!");
     }
-    if (currentGroup.length > 1) {
-      groups.push(currentGroup);
-      processed.add(bank[i].id);
-    }
+  } catch (e) {
+    console.error(e);
+    alert("Lỗi kết nối server!");
+  } finally {
+    setLoading(false);
   }
-  return groups;
 };
-const handleDeepScan = () => {
-  // Kiểm tra nếu bank chưa có dữ liệu
-  if (!questionsBank || questionsBank.length === 0) {
-    alert("Dữ liệu đang được tải hoặc ngân hàng trống. Thầy đợi tí nhé!");
+  // Tìm đến đoạn này trong code của bạn (khoảng dòng 270-280)
+if (!isAdminVerified) {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center p-4">
+      <div className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-md text-center">
+        <h2 className="text-2xl font-black mb-8">ADMIN SECURITY</h2>
+        
+        <input 
+          type="password" 
+          className="w-full p-5 bg-slate-50 border-2 rounded-2xl text-center text-4xl mb-8" 
+          value={otp} 
+          onChange={e => setOtp(e.target.value)} 
+          placeholder="••••"
+        />
+
+        {/* THAY THẾ NÚT CŨ BẰNG NÚT MỚI Ở ĐÂY */}
+        <button 
+          onClick={handleVerifyAdminOTP} 
+          disabled={loading}
+          className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70"
+        >
+          {loading ? (
+            <><i className="fa-solid fa-spinner animate-spin"></i> ĐANG KIỂM TRA...</>
+          ) : (
+            "XÁC MINH"
+          )}
+        </button>
+        
+      </div>
+    </div>
+  );
+}
+// Hàm tìm câu trùng
+const handleFindDuplicates = async () => {
+  setLoading(true);
+  try {
+    const resp = await fetch(`${KETQUA_URL}?action=findDuplicateQuestions`);
+    const res = await resp.json();
+    if (res.status === 'success') {
+      setDuplicateGroups(res.data);
+      setCurrentTab('duplicate'); // Chuyển sang tab hiển thị
+    }
+  } catch (e) {
+    alert("Lỗi tìm kiếm!");
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Hàm xóa câu hỏi trùng
+const handleDeleteRow = async (rowIdx, idToDelete) => {
+  if(!window.confirm(`Thầy chắc chắn muốn xóa id [${idToDelete}] khỏi ngân hàng?`)) return;
+  
+  try {
+    const resp = await fetch(`${KETQUA_URL}?action=deleteQuestionRow&rowIdx=${rowIdx}`);
+    const res = await resp.json();
+    
+   if(res.status === 'success') {
+    alert(`🚀 Đã xóa id [${idToDelete}] thành công!`);
+    handleFindDuplicates(); // Gọi lại để refresh lại index hàng cho chuẩn}
+      
+      // Cập nhật lại danh sách ngay lập tức để không phải load lại cả trang
+      setDuplicateGroups(prev => prev.map(group => ({
+        ...group,
+        items: group.items.filter(item => item.id !== idToDelete)
+      })).filter(group => group.items.length > 1));
+      
+    } else {
+      alert("❌ Lỗi rồi: " + res.message);
+    }
+  } catch (e) { 
+    alert("❌ Lỗi kết nối server rồi thầy ơi!"); 
+  }
+};
+  // ===== xem chi tiết câu trùng ============ 
+const handleOpenPreview = (item) => {
+  setPreviewQuestion(item);
+  setPreviewEdit(item);   // thêm dòng này
+  setShowPreview(true);
+};
+  const handleDeleteInsidePreview = async (item) => {
+  // Tận dụng lại hàm xóa thầy trò mình đã viết ở trên
+  await handleDeleteRow(item.rowIdx, item.id);
+  // Xóa xong thì tự động đóng Modal để về danh sách
+  setShowPreview(false);
+};
+  // ========== Hàm sửa câu hỏi ========================================================================
+  // =================================== CẬP NHẬT TỪNG PHẦN (4 LÔ) ===================================
+const handleQuickUpdate = async (field, newValue) => {
+  if (!editForm.idquestion && !editForm.id) {
+    alert("Không tìm thấy ID câu hỏi!");
     return;
   }
-  
-  const bank = questionsBank;
-  const groups = [];
-  const processed = new Set();
-  const resultDiv = document.getElementById('duplicateResult');
-  resultDiv.innerHTML = ''; // Xóa kết quả cũ
 
-  for (let i = 0; i < bank.length; i++) {
-    if (processed.has(bank[i].id)) continue;
-    let group = [bank[i]];
+  setLoading(true);
+  try {
+    // 1. Cập nhật state local ngay để thầy thấy thay đổi (Optimistic Update)
+    const updatedForm = { ...editForm, [field]: newValue };
+    setEditForm(updatedForm);
 
-    for (let j = i + 1; j < bank.length; j++) {
-      const q1 = bank[i];
-      const q2 = bank[j];
-
-      // TIÊU CHUẨN THẦY ĐẶT RA:
-      const isSameAnswer = q1.loigiai === q2.loigiai && q1.loigiai !== "";
-      // So sánh nội dung (loại bỏ khoảng trắng, dấu để so sánh chính xác)
-      const content1 = q1.question.replace(/\s+/g, '').toLowerCase();
-      const content2 = q2.question.replace(/\s+/g, '').toLowerCase();
-      const isSimilar = content1 === content2;
-
-      if (isSameAnswer || isSimilar) {
-        group.push(q2);
-        processed.add(q2.id);
+    // 2. Tạo payload KHỚP 100% tên cột trong sheetNH của thầy
+    const payload = {
+      data: {
+        id: updatedForm.id || updatedForm.idquestion, // Khóa chính (Cột A)
+        classTag: updatedForm.classTag || "",        // Cột B
+        type: updatedForm.type || "",                // Cột C
+        part: updatedForm.part || "",                // Cột D
+        question: updatedForm.question || "",        // Cột E
+        options: updatedForm.options || "",          // Cột F
+        answer: updatedForm.answer || "",            // Cột G
+        loigiai: updatedForm.loigiai || "",          // Cột H
+        date: new Date().toLocaleString('vi-VN')    // Cột I (Tự động ghi ngày sửa)
       }
+    };
+
+    // 3. Gửi lên Google Apps Script
+    const res = await fetch(`${KETQUA_URL}?action=updateQuestion`, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+    
+    if (result.status === 'success') {
+      alert(`✅ Đã lưu xong phần [${field}] vào sheetNH! Kaka.`);
+      // Quét lại MathJax cho đẹp
+      setTimeout(() => window.MathJax?.typesetPromise(), 200);
+    } else {
+      alert("❌ Lỗi Server: " + result.message);
     }
 
-    if (group.length > 1) {
-      groups.push(group);
-      processed.add(bank[i].id);
-      
-      // Hiển thị kết quả ngay lên màn hình
-      const ids = group.map(g => g.id).join(', ');
-      resultDiv.innerHTML += `
-        <div class="p-4 bg-slate-50 rounded-2xl border-l-4 border-purple-500">
-          <div class="flex justify-between items-center mb-2">
-            <span class="font-black text-purple-600 text-sm uppercase">Nhóm trùng:</span>
-            <button onclick="navigator.clipboard.writeText('${ids}'); alert('Đã copy danh sách ID!')" class="text-[10px] bg-white px-2 py-1 rounded border font-bold hover:bg-purple-50">Copy tất cả ID</button>
-          </div>
-          <p class="text-xs font-bold text-slate-700 mb-1">Các ID: ${ids}</p>
-          <p class="text-[11px] text-slate-500 italic truncate">Nội dung: ${group[0].question.substring(0, 100)}...</p>
-        </div>
-      `;
-    }
+  } catch (error) {
+    console.error("Lỗi cập nhật:", error);
+    alert("❌ Lỗi kết nối! Thầy kiểm tra mạng hoặc DANHGIA_URL nhé.");
+  } finally {
+    setLoading(false);
   }
-  
-  if(groups.length === 0) {
-    resultDiv.innerHTML = '<div class="text-center py-10 font-bold text-emerald-500">🎉 Tuyệt vời! Không có câu nào trùng lặp.</div>';
-  }
-  return groups;
 };
-
-  // --- 2. XÁC MINHXỬ LÝ NHẬP CÂU HỎI & SỬA LẺ (Giữ nguyên logic của thầy) ---
-  const handleVerifyAdminOTP = () => {
-    if (otp === "12345@" || otp === "6688@") setIsAdminVerified(true);
-    else alert("Mã OTP sai!");
-  };
-  if (!isAdminVerified) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center p-4">
-        <div className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-md text-center">
-          <h2 className="text-2xl font-black mb-8">ADMIN SECURITY</h2>
-          <input type="text" className="w-full p-5 bg-slate-50 border-2 rounded-2xl text-center text-4xl mb-8" value={otp} onChange={e => setOtp(e.target.value)} />
-          <button onClick={handleVerifyAdminOTP} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black">XÁC MINH</button>
-        </div>
-      </div>
-    );
-  }
-
   return (
- <div className="p-4 md:p-8 bg-white rounded-[3rem] shadow-xl max-w-6xl mx-auto my-6 border border-slate-50">
+ <div className="p-3 md:p-8 bg-white rounded-[2rem] md:rounded-[3rem] shadow-xl max-w-6xl mx-auto my-4 md:my-6 border border-slate-50">
       <div className="flex items-center gap-2 mb-8 bg-white/50 backdrop-blur-md p-2 rounded-3xl w-fit shadow-sm border border-slate-200">
   {/* Nút Sửa câu hỏi */}
   <button 
     onClick={() => setCurrentTab('cauhoi')} 
-    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-all ${
+    className={`flex items-center gap-2 px-4 py-2 text-[10px] rounded-2xl font-black text-xs uppercase transition-all ${
       currentTab === 'cauhoi' 
       ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 scale-105' 
       : 'text-slate-500 hover:bg-slate-100'
@@ -362,7 +540,7 @@ const handleDeepScan = () => {
   {/* Nút Import Word */}
   <button 
     onClick={() => setCurrentTab('word')} 
-    className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-all ${
+    className={`flex items-center gap-2 px-4 py-2 text-[10px] rounded-2xl font-black text-xs uppercase transition-all ${
       currentTab === 'word' 
       ? 'bg-orange-500 text-white shadow-lg shadow-orange-200 scale-105' 
       : 'text-slate-500 hover:bg-slate-100'
@@ -373,7 +551,7 @@ const handleDeepScan = () => {
          {/* Nút Import LG - Thêm mới tại đây */}
 <button 
   onClick={() => {setCurrentTab('lg'); setJsonInput('');}} 
-  className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-all ${
+  className={`flex items-center gap-2 px-4 py-2 text-[10px] rounded-2xl font-black text-xs uppercase transition-all ${
     currentTab === 'lg' 
     ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 scale-105' 
     : 'text-slate-500 hover:bg-slate-100'
@@ -381,36 +559,25 @@ const handleDeepScan = () => {
 >
   <i className="fa-solid fa-lightbulb"></i> Import LG
 </button>
-{/* Nút Tìm câu trùng */}
+        {/* Nút tìm câu trùng: */}
 <button 
-  onClick={() => setCurrentTab('duplicate')} 
-  className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-all ${
+  onClick={handleFindDuplicates} 
+  className={`flex items-center gap-2 px-4 py-2 text-[10px] rounded-2xl font-black text-xs uppercase transition-all ${
     currentTab === 'duplicate' 
-    ? 'bg-purple-600 text-white shadow-lg shadow-purple-200 scale-105' 
+    ? 'bg-red-500 text-white shadow-lg shadow-red-200 scale-105' 
     : 'text-slate-500 hover:bg-slate-100'
   }`}
 >
-  <i className="fa-solid fa-clone"></i> Tìm câu trùng
+  <i className="fa-solid fa-clone"></i> {loading ? 'Đang quét...' : 'Tìm câu trùng'}
 </button>
 
-{/* Nút Xóa câu hỏi */}
-<button 
-  onClick={() => setCurrentTab('delete')} 
-  className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase transition-all ${
-    currentTab === 'delete' 
-    ? 'bg-red-600 text-white shadow-lg shadow-red-200 scale-105' 
-    : 'text-slate-500 hover:bg-slate-100'
-  }`}
->
-  <i className="fa-solid fa-trash-can"></i> Xóa câu hỏi
-</button>
   {/* Vạch ngăn cách tinh tế */}
   <div className="w-[1px] h-6 bg-slate-300 mx-2"></div>
 
   {/* Nút Thoát ra - Rực rỡ và an toàn */}
   <button 
     onClick={onBack} 
-    className="flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase text-red-500 hover:bg-red-50 hover:scale-105 transition-all active:scale-95"
+    className="flex items-center gap-2 px-4 py-2 text-[10px] rounded-2xl font-black text-xs uppercase text-red-500 hover:bg-red-50 hover:scale-105 transition-all active:scale-95"
   >
     <i className="fa-solid fa-right-from-bracket"></i> Thoát ra
   </button>
@@ -418,118 +585,142 @@ const handleDeepScan = () => {
       <div className="min-h-[500px]">
        {/* TAB 1: SỬA CÂU HỎI */}
 {currentTab === 'cauhoi' && (
-  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-500">
+  <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
     
-    {/* CỘT TRÁI: NHẬP LIỆU & ĐIỀU KHIỂN */}
-    <div className="bg-slate-50 p-6 rounded-[2.5rem] space-y-4 shadow-sm">
-      <div className="flex items-center justify-between mb-2 px-2">
-        <span className="text-xs font-black text-slate-400 uppercase tracking-tighter">Bộ lọc tìm kiếm</span>
-        {editForm.idquestion && <span className="text-[10px] text-blue-500 font-bold">Đang sửa: {editForm.idquestion}</span>}
-      </div>
-      
-      <div className="flex gap-2 bg-white p-2 rounded-3xl shadow-sm border border-slate-100">
-        <input 
-          type="text" 
-          placeholder="Nhập ID câu hỏi (VD: MCQ001)..." 
-          className="flex-1 p-3 pl-4 rounded-2xl outline-none text-sm font-bold" 
-          value={editForm.idquestion} 
-          onChange={e => setEditForm({...editForm, idquestion: e.target.value})} 
-        />
-        <button 
-          onClick={findQuestion} 
-          disabled={loading}
-          className="px-8 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs transition-all active:scale-95 disabled:opacity-50"
-        >
-          {loading ? <i className="fa-solid fa-spinner animate-spin"></i> : 'TÌM'}
-        </button>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-[10px] font-black text-slate-400 ml-4 uppercase">Nội dung chỉnh sửa</label>
-        <textarea 
-          className="w-full h-80 p-6 rounded-[2rem] outline-none shadow-sm border border-transparent focus:border-blue-300 transition-all text-sm leading-relaxed" 
-          placeholder="Nội dung câu hỏi sẽ hiện ở đây để thầy chỉnh sửa..."
-          value={editForm.question} 
-          onChange={e => setEditForm({...editForm, question: e.target.value})} 
-        />
-      </div>
-
-      {/* Nút cập nhật nhanh */}
-      <button 
-        onClick={handleUpdateQuestion}
-        className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-emerald-100 transition-all"
-      >
-        <i className="fa-solid fa-floppy-disk mr-2"></i> LƯU THAY ĐỔI (CỘT C)
+    {/* THANH TÌM KIẾM ID */}
+    <div className="bg-white p-4 rounded-[2rem] shadow-sm border-2 border-slate-100 flex gap-3">
+      <input 
+        type="text" 
+        placeholder="Nhập ID câu hỏi để sửa..." 
+        className="flex-1 pl-6 py-3 bg-slate-50 rounded-2xl outline-none font-black text-blue-600 border-none"
+        value={editForm.idquestion}
+        onChange={e => setEditForm({...editForm, idquestion: e.target.value})}
+      />
+      <button onClick={findQuestion} className="px-8 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all shadow-md">
+        {loading ? <i className="fa-solid fa-spinner animate-spin"></i> : 'TÌM CÂU HỎI'}
       </button>
     </div>
 
-    {/* CỘT PHẢI: HIỂN THỊ CHI TIẾT (PREVIEW CỘT C) */}
-    <div className="bg-slate-50 p-6 rounded-[2.5rem] flex flex-col shadow-sm border border-white">
-      <div className="flex items-center justify-between mb-4 px-2">
-        <p className="text-xs font-black text-slate-400 uppercase tracking-tighter">Nội dung chi tiết (Cột C)</p>
-        <div className="flex gap-1">
-            <div className="w-2 h-2 rounded-full bg-red-400"></div>
-            <div className="w-2 h-2 rounded-full bg-amber-400"></div>
-            <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+    {editForm.question ? (
+      <div className="grid grid-cols-1 gap-4">
+        
+        {/* LÔ 1: NỘI DUNG CÂU HỎI (QUESTION) */}
+        <EditableSection 
+          title="Nội dung câu hỏi" 
+          value={editForm.question} 
+          icon="fa-question-circle"
+          onSave={(val) => handleQuickUpdate('question', val)} 
+        />
+
+        {/* LÔ 2: CÁC LỰA CHỌN (OPTIONS) */}
+        <EditableSection 
+          title="Các phương án (JSON)" 
+          value={editForm.options} 
+          icon="fa-list-ul"
+          onSave={(val) => handleQuickUpdate('options', val)} 
+        />
+
+        {/* LÔ 3: ĐÁP ÁN ĐÚNG (ANSWER) */}
+        <EditableSection 
+          title="Đáp án đúng" 
+          value={editForm.answer} 
+          icon="fa-check-double"
+          isSmall={true}
+          onSave={(val) => handleQuickUpdate('answer', val)} 
+        />
+
+        {/* LÔ 4: LỜI GIẢI (LOIGIAI) */}
+        <EditableSection 
+          title="Lời giải chi tiết" 
+          value={editForm.loigiai} 
+          icon="fa-lightbulb"
+          onSave={(val) => handleQuickUpdate('loigiai', val)} 
+        />
+
+        {/* NÚT THOÁT DƯỚI CÙNG */}
+        <div className="flex justify-center pt-6">
+            <button 
+                onClick={() => setEditForm({ idquestion: '', question: '', options: '', answer: '', loigiai: '' })}
+                className="px-12 py-4 bg-slate-200 text-slate-600 rounded-[2rem] font-black hover:bg-red-50 hover:text-red-600 transition-all uppercase text-xs tracking-widest"
+            >
+                <i className="fa-solid fa-power-off mr-2"></i> Thoát sửa câu này
+            </button>
+        </div>
+      </div>
+    ) : (
+      <div className="py-20 text-center text-slate-300 italic bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+          <i className="fa-solid fa-magnifying-glass text-5xl mb-4 opacity-20"></i>
+          <p>Nhập ID để nạp dữ liệu chỉnh sửa thầy nhé!</p>
+      </div>
+    )}
+  </div>
+)}
+       {/* TAB 2: IMPORT WORD */}
+{currentTab === 'word' && (
+  <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+      
+      {/* CỘT 1: NHẬP LIỆU (CHIẾM 4 PHẦN) */}
+     <div className="lg:col-span-4 space-y-4 order-2 lg:order-1">
+        <div className="bg-slate-100 p-5 rounded-[2.5rem] border border-slate-200">
+          <label className="block text-[10px] font-black text-slate-500 mb-2 ml-2 uppercase tracking-wider">
+            1. Dán nội dung từ Word
+          </label>
+          <textarea 
+            className="w-full min-h-[220px] md:h-[600px] p-4 md:p-6 bg-white rounded-[2rem] text-sm shadow-inner text-sm outline-none focus:ring-2 ring-orange-400 transition-all" 
+            placeholder="Dán nội dung dạng {id: 601...}# vào đây..." 
+            onChange={(e) => handleWordParser(e.target.value)} 
+          />
         </div>
       </div>
 
-      <div className="flex-1 bg-white p-8 rounded-[2rem] shadow-inner overflow-y-auto border border-slate-100">
-        {editForm.question ? (
-          <div className="animate-in slide-in-from-bottom-2 duration-500">
-             {/* Hiển thị Question với định dạng gốc */}
-            <div className="prose prose-slate max-w-none">
-              <p className="text-slate-700 text-base leading-7 whitespace-pre-wrap font-medium">
-                {editForm.question}
-              </p>
-            </div>
+      {/* CỘT 2: XEM TRƯỚC (CHIẾM 6 PHẦN) */}
+      <div className="lg:col-span-6 space-y-4 order-1 lg:order-2">
+        <div className="bg-white p-5 rounded-[2.5rem] border-2 border-slate-100 shadow-sm min-h-[300px] lg:h-[600px] flex flex-col">
+          
+          {/* HEADER CỦA CỘT REVIEW: CHỨA TIÊU ĐỀ VÀ NÚT LƯU */}
+          <div className="flex items-center justify-between mb-4 px-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+              2. Review hiển thị thực tế
+            </label>
             
-            {/* Vạch kẻ trang trí */}
-            <div className="my-6 border-t border-dashed border-slate-200"></div>
-            
-            {/* Thông tin bổ sung - Thầy có thể mở rộng thêm đáp án ở đây */}
-            <div className="grid grid-cols-2 gap-4">
-               <div className="p-4 bg-slate-50 rounded-2xl">
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Trạng thái</span>
-                  <span className="text-xs font-bold text-emerald-600 italic">Đã đồng bộ từ Sheet</span>
-               </div>
-               <div className="p-4 bg-slate-50 rounded-2xl">
-                  <span className="block text-[10px] font-bold text-slate-400 uppercase">Định dạng</span>
-                  <span className="text-xs font-bold text-blue-600 italic">UTF-8 Standard</span>
-               </div>
-            </div>
+            <button 
+              onClick={handleSaveQuestions} 
+              disabled={!jsonInput || loading} 
+              className="px-8 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-full font-black text-xs shadow-lg hover:shadow-orange-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:grayscale transition-all flex items-center gap-2"
+            >
+              {loading ? (
+                <i className="fa-solid fa-spinner animate-spin"></i>
+              ) : (
+                <>
+                  <i className="fa-solid fa-cloud-arrow-up"></i>
+                  ĐẨY LÊN SHEET NH
+                </>
+              )}
+            </button>
           </div>
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4">
-            <i className="fa-solid fa-magnifying-glass text-5xl opacity-20"></i>
-            <p className="text-sm font-bold italic">Chưa có dữ liệu để hiển thị...</p>
+
+          <div className="flex-1 bg-slate-50 rounded-[1.5rem] p-4 overflow-y-auto border border-dashed border-slate-200">
+            {previewData.length > 0 ? (
+              <QuestionPreviewBlock
+  data={previewData}
+  onUpdate={setPreviewData}
+/>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-300 italic text-sm space-y-2">
+                <i className="fa-solid fa-eye-slash text-2xl"></i>
+                <span>Chưa có dữ liệu để xem trước...</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
-      
-      <p className="mt-4 text-[10px] text-center text-slate-400 font-medium">
-        Hệ thống tự động canh lề và giữ nguyên định dạng xuống dòng (whitespace)
-      </p>
+
     </div>
-    
   </div>
 )}
-
-        {/* TAB 2: IMPORT WORD */}
-        {currentTab === 'word' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-300">
-            <div className="bg-slate-50 p-6 rounded-[2.5rem]">
-              <textarea className="w-full h-96 p-6 bg-white rounded-[2rem] shadow-sm text-sm outline-none" placeholder="Dán nội dung Word..." onChange={(e) => handleWordParser(e.target.value)} />
-            </div>
-            <div className="bg-slate-50 p-6 rounded-[2.5rem] space-y-4">
-              <textarea className="w-full h-80 p-6 bg-slate-900 text-emerald-400 rounded-[2rem] font-mono text-xs outline-none" value={jsonInput} readOnly />
-              <button onClick={handleSaveQuestions} disabled={!jsonInput || loading} className="w-full py-5 bg-orange-600 text-white rounded-[2rem] font-black shadow-lg">
-                {loading ? 'ĐANG ĐẨY DỮ LIỆU...' : 'ĐẨY LÊN SHEET'}
-              </button>
-            </div>
-          </div>
-        )}   
-        {/* TAB 3: IMPORT LỜI GIẢI (CỘT E) */}
+        
+        {/* TAB 3: IMPORT LỜI GIẢI TRONG NGÂN HÀNG CÂU HỎI */}
 {currentTab === 'lg' && (
   <div className="max-w-4xl mx-auto animate-in slide-in-from-bottom-4">
     <div className="bg-emerald-50 p-8 rounded-[3rem] border-2 border-dashed border-emerald-200">
@@ -544,8 +735,162 @@ const handleDeepScan = () => {
         disabled={loading || !jsonInput}
         className="w-full py-5 bg-emerald-600 text-white rounded-[2rem] font-black shadow-xl"
       >
-        {loading ? "ĐANG LƯU..." : "CẬP NHẬT LỜI GIẢI (CỘT E)"}
+        {loading ? "ĐANG LƯU..." : "CẬP NHẬT LỜI GIẢI"}
       </button>
+    </div>
+  </div>
+)}
+        {/* TÌM CÂU TRÙNG */}
+        {currentTab === 'duplicate' && (
+  <div className="space-y-4 animate-in fade-in">
+    <h3 className="text-xl font-black text-slate-800 mb-4 px-4">Các nhóm câu hỏi nghi trùng lặp</h3>
+    {duplicateGroups.length === 0 ? (
+      <p className="text-center py-20 text-slate-400 italic">Tuyệt vời! Không phát hiện câu trùng lặp nào.</p>
+    ) : (
+      duplicateGroups.map((group, idx) => (
+        <div key={idx} className="bg-white border-2 border-slate-100 rounded-[2rem] overflow-hidden shadow-sm">
+          <div className="p-6 flex justify-between items-center bg-slate-50">
+            <div>
+              <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] font-black mr-2">
+                TRÙNG {group.score}%
+              </span>
+              <span className="font-bold text-slate-700 underline">Gốc: {group.mainId}</span>
+              <span className="ml-3 text-xs text-slate-400">({group.items.length} câu tương tự)</span>
+            </div>
+            <button 
+              onClick={() => setExpandedGroupId(expandedGroupId === idx ? null : idx)}
+              className="text-blue-600 font-bold text-xs"
+            >
+              {expandedGroupId === idx ? 'Thu gọn' : 'Xem chi tiết'}
+            </button>
+          </div>
+          
+          {expandedGroupId === idx && (
+            <div className="p-4 space-y-2 bg-white">
+              {group.items.map((item, i) => (
+                <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-white">
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-slate-600">ID: {item.id} | Tag: {item.classTag}</p>
+                    <p className="text-sm text-slate-500 line-clamp-1 italic">"{item.question}"</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                    onClick={() => handleOpenPreview(item)} // Gọi hàm preview mới
+                    className="p-2 px-4 bg-blue-100 text-blue-600 rounded-xl text-[10px] font-bold hover:bg-blue-600 hover:text-white transition-all"
+                    >
+                    CHI TIẾT
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteRow(item.rowIdx, item.id)}
+                      className="p-2 px-4 bg-red-100 text-red-600 rounded-xl text-[10px] font-bold hover:bg-red-600 hover:text-white transition-all"
+                    >
+                      XÓA
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))
+    )}
+  </div>
+)}
+        {/* MODAL PREVIEW CÂU HỎI */}
+{/* MODAL PREVIEW CÂU HỎI */}
+{showPreview && previewQuestion && (
+  <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    
+    <div className="bg-white w-full max-w-2xl max-h-[90vh] rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+      
+      {/* Header */}
+      <div className="p-6 bg-slate-50 border-b flex justify-between items-center">
+        <div>
+          <h4 className="font-black text-slate-800">PREVIEW CÂU HỎI</h4>
+          <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">
+            ID: {previewQuestion.id} | Tag: {previewQuestion.classTag}
+          </p>
+        </div>
+
+        <button
+          onClick={() => {
+            setShowPreview(false);
+            setPreviewEdit(null);
+          }}
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-white shadow-sm hover:bg-red-50 text-red-500 transition-colors"
+        >
+          <i className="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="p-4 md:p-6 flex-1 overflow-y-auto space-y-4">
+
+               <EditableSection
+          title="Nội dung câu hỏi"
+          value={previewEdit?.question}
+          icon="fa-question-circle"
+          onSave={(val) => {
+            setPreviewEdit(prev => ({ ...prev, question: val }));
+            handleQuickUpdate('question', val);
+          }}
+        />
+
+        <EditableSection
+          title="Các phương án (JSON)"
+          value={previewEdit?.options}
+          icon="fa-list-ul"
+          onSave={(val) => {
+            setPreviewEdit(prev => ({ ...prev, options: val }));
+            handleQuickUpdate('options', val);
+          }}
+        />
+
+        <EditableSection
+          title="Đáp án đúng"
+          value={previewEdit?.answer}
+          icon="fa-check-double"
+          isSmall={true}
+          onSave={(val) => {
+            setPreviewEdit(prev => ({ ...prev, answer: val }));
+            handleQuickUpdate('answer', val);
+          }}
+        />
+
+        <EditableSection
+          title="Lời giải chi tiết"
+          value={previewEdit?.loigiai}
+          icon="fa-lightbulb"
+          onSave={(val) => {
+            setPreviewEdit(prev => ({ ...prev, loigiai: val }));
+            handleQuickUpdate('loigiai', val);
+          }}
+        />
+
+      </div>
+
+      {/* Footer */}
+      <div className="p-6 border-t bg-slate-50 flex justify-between items-center">
+        
+        <button
+          onClick={() => handleDeleteInsidePreview(previewQuestion)}
+          className="px-4 py-2 text-[10px] bg-red-100 text-red-600 rounded-2xl font-bold text-xs hover:bg-red-600 hover:text-white transition-all"
+        >
+          <i className="fa-solid fa-trash mr-2"></i> XÓA CÂU NÀY
+        </button>
+
+        <button
+          onClick={() => {
+            setShowPreview(false);
+            setPreviewEdit(null);
+          }}
+          className="px-4 py-2 text-[10px] bg-slate-200 text-slate-600 rounded-2xl font-bold text-xs hover:bg-slate-300 transition-all"
+        >
+          ĐÓNG
+        </button>
+
+      </div>
+
     </div>
   </div>
 )}
@@ -554,74 +899,11 @@ const handleDeepScan = () => {
     <strong>Lời giải:</strong> {loiGiaiTraCuu}
   </div>
 )}
-        {/* TAB 4: XÓA CÂU HỎI */}
-        {currentTab === 'delete' && (
-  <div className="p-8 bg-white rounded-[2.5rem] border-2 border-red-50 shadow-xl animate-fade-in">
-    <div className="flex items-center gap-4 mb-6">
-      <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center">
-        <i className="fa-solid fa-eraser text-xl"></i>
-      </div>
-      <div>
-        <h3 className="text-xl font-black text-slate-800 uppercase">Xóa câu hỏi hàng loạt</h3>
-        <p className="text-xs text-slate-400 font-bold">Nhập các ID cách nhau bởi dấu phẩy</p>
-      </div>
-    </div>
-
-    <textarea 
-      id="batchDeleteInput"
-      placeholder="Ví dụ: 601.1, 1002.4, 1205.2" 
-      className="w-full p-5 bg-slate-50 rounded-3xl border-2 border-slate-100 outline-none font-black text-red-600 focus:border-red-200 transition-all mb-4 h-32"
-    />
-
-    <button 
-      onClick={async () => {
-        const input = document.getElementById('batchDeleteInput').value;
-        if(!input) return alert("Vui lòng nhập ít nhất một ID!");
-        
-        if(confirm(`Bạn có chắc chắn muốn xóa các câu: ${input}?`)) {
-          const url = `${DANHGIA_URL}?action=deleteMultiple&ids=${encodeURIComponent(input)}`;
-          const resp = await fetch(url);
-          const res = await resp.json();
-          if(res.status === "success") {
-            alert(`Thành công! Đã xóa ${res.deletedCount} câu hỏi.`);
-            document.getElementById('batchDeleteInput').value = '';
-          }
-        }
-      }}
-      className="w-full py-5 bg-red-600 text-white rounded-2xl font-black uppercase shadow-lg shadow-red-200 hover:bg-red-700 active:scale-95 transition-all flex items-center justify-center gap-3"
-    >
-      <i className="fa-solid fa-trash-arrow-up"></i> Xác nhận xóa vĩnh viễn
-    </button>
-  </div>
-)}
-
-       {currentTab === 'duplicate' && (
-  <div className="p-8 bg-white rounded-[2.5rem] border-2 border-purple-50 shadow-xl animate-fade-in">
-    <div className="flex items-center justify-between mb-6">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center">
-          <i className="fa-solid fa-magnifying-glass-chart text-xl"></i>
-        </div>
-        <div>
-          <h3 className="text-xl font-black text-slate-800 uppercase">Phân tích câu trùng</h3>
-          <p className="text-xs text-slate-400 font-bold">Dựa trên nội dung và đáp án</p>
-        </div>
-      </div>
-      <button 
-        onClick={() => {
-          // Hàm này thầy gọi logic tìm trùng em viết ở dưới
-          const result = handleDeepScan(); 
-          alert(`Tìm thấy ${result.length} nhóm nghi ngờ trùng!`);
-        }}
-        className="px-6 py-3 bg-purple-600 text-white rounded-xl font-black text-xs uppercase hover:bg-purple-700 transition-all"
-      >
-        Bắt đầu quét ngân hàng
-      </button>
-    </div>
-
-    {/* Nơi hiện kết quả tìm trùng */}
-    <div id="duplicateResult" className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-       <p className="text-center text-slate-400 italic text-sm">Nhấn nút quét để bắt đầu phân tích dữ liệu...</p>
+  {loading && (
+  <div className="fixed inset-0 bg-white/50 backdrop-blur-[2px] z-[1000] flex items-center justify-center touch-none">
+    <div className="flex flex-col items-center gap-3">
+      <i className="fa-solid fa-spinner animate-spin text-4xl text-blue-600"></i>
+      <span className="font-black text-xs text-blue-600 tracking-widest animate-pulse">ĐANG CẬP NHẬT... KAKA</span>
     </div>
   </div>
 )}

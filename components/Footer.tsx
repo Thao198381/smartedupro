@@ -1,10 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Facebook, Twitter, MessageCircle, Send, Star } from 'lucide-react';
 import RatingModal from './RatingModal';
 
 const Footer: React.FC = () => {
   const [isRatingOpen, setIsRatingOpen] = useState(false);
+  // 1. Thêm state lưu lượt truy cập
+  const [viewCount, setViewCount] = useState<number | null>(null);
 
+// 2. Thêm useEffect này để đếm theo phiên và tối ưu tốc độ F5 cực mượt
+  useEffect(() => {
+    const namespace = "mathdigitizer_smartcrop"; 
+    const key = "visits";
+    
+    // Tìm xem trong Tab này đã lưu con số nào chưa
+    const savedCount = sessionStorage.getItem('mathdigitizer_viewCount');
+
+    if (savedCount) {
+      // NẾU ĐÃ CÓ (Khách bấm F5): Lấy thẳng số cũ ra hiện, KHÔNG cần gọi mạng nữa! 
+      setViewCount(parseInt(savedCount, 10));
+    } else {
+      // MỞ TAB LẦN ĐẦU (hoặc tắt đi vào lại): Gọi API để CỘNG 1
+      fetch(`https://api.counterapi.dev/v1/${namespace}/${key}/up`)
+        .then(res => res.json())
+        .then(data => {
+          setViewCount(data.count); // Hiện số mới lên web
+          // Tiện tay cất luôn con số này vào bộ nhớ Tab để nhỡ có F5 thì mang ra dùng
+          sessionStorage.setItem('mathdigitizer_viewCount', data.count.toString()); 
+        })
+        .catch(err => console.error("Lỗi đếm truy cập:", err));
+    }
+  }, []);
   return (
     <footer className="bg-gray-900 text-white py-12 border-t border-gray-800">
       <div className="container mx-auto px-4">
@@ -15,12 +40,24 @@ const Footer: React.FC = () => {
           </div>
 
           <div className="flex flex-col items-center md:items-end gap-4">
-             <button 
-              onClick={() => setIsRatingOpen(true)}
-              className="flex items-center gap-2 bg-yellow-600/10 hover:bg-yellow-600/20 text-yellow-500 border border-yellow-600/20 px-4 py-2 rounded-full text-sm font-bold transition-all"
-            >
-              <Star size={16} fill="currentColor" /> Đánh giá web
-            </button>
+             {/* --- BẮT ĐẦU ĐOẠN CODE BỌC CẢ 2 NÚT LẠI --- */}
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setIsRatingOpen(true)}
+                className="flex items-center gap-2 bg-yellow-600/10 hover:bg-yellow-600/20 text-yellow-500 border border-yellow-600/20 px-4 py-2 rounded-full text-sm font-bold transition-all"
+              >
+                <Star size={16} fill="currentColor" /> Đánh giá web
+              </button>
+              
+              {/* Lượt truy cập nằm ngay bên phải */}
+              {viewCount !== null && (
+                <div className="flex items-center gap-2 bg-gray-800 text-gray-300 border border-gray-700 px-4 py-2 rounded-full text-sm font-bold shadow-inner">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Lượt truy cập: {viewCount.toLocaleString()} 
+                </div>
+              )}
+            </div>
+            {/* --- KẾT THÚC ĐOẠN CODE --- */}
             
             <div className="flex items-center gap-4">
               <a href="https://www.facebook.com/hoctoanthayha.bg" target="_blank" rel="noreferrer" className="bg-white/5 p-3 rounded-full hover:bg-blue-600 hover:text-white transition-all shadow-lg">
@@ -32,7 +69,7 @@ const Footer: React.FC = () => {
               <a href="https://t.me" target="_blank" rel="noreferrer" className="bg-white/5 p-3 rounded-full hover:bg-blue-400 hover:text-white transition-all shadow-lg">
                 <Send size={20} />
               </a>
-              <a href="https://zalo.me" target="_blank" rel="noreferrer" className="bg-white/5 p-3 rounded-full hover:bg-blue-500 hover:text-white transition-all shadow-lg flex items-center justify-center font-bold text-[10px]">
+              <a href="https://zalo.me/g/nlvywc450" target="_blank" rel="noreferrer" className="bg-white/5 p-3 rounded-full hover:bg-blue-500 hover:text-white transition-all shadow-lg flex items-center justify-center font-bold text-[10px]">
                 Zalo
               </a>
             </div>

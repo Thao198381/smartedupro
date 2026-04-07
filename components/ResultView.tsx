@@ -23,7 +23,8 @@ React.useEffect(() => {
   }
 }, [showReview]);
 
-  const btnStyle = "w-full sm:w-64 py-4 bg-blue-600 text-white rounded-full font-black text-lg hover:bg-blue-700 transition shadow-xl flex items-center justify-center gap-3 active:scale-95 border-b-4 border-blue-800";
+  const btnStyle =
+"w-full sm:w-64 py-3 sm:py-4 text-base sm:text-lg bg-blue-600 text-white rounded-full font-black hover:bg-blue-700 transition shadow-xl flex items-center justify-center gap-3 active:scale-95 border-b-4 border-blue-800";
   const extractLoigiai = (lg?: string) => {
   if (!lg) return "";
 
@@ -39,33 +40,33 @@ React.useEffect(() => {
   return lg;
 };
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20 font-sans">
-      <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-200 text-center relative overflow-hidden">
+    <div className="max-w-5xl mx-auto px-3 sm:px-6 space-y-6 sm:space-y-8 animate-fade-in pb-20 font-sans">
+     <div className="bg-white p-5 sm:p-10 md:p-12 rounded-3xl sm:rounded-[3rem] shadow-2xl border border-slate-200 text-center relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
-        <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
-          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
+        <div className="w-16 h-16 sm:w-24 sm:h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8 shadow-inner">
+          <svg className="w-8 h-8 sm:w-12 sm:h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
         </div>
-        <h2 className="text-4xl font-black text-slate-800 mb-2 uppercase tracking-tight">KẾT QUẢ BÀI THI</h2>
+       <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 mb-2 uppercase tracking-tight">KẾT QUẢ BÀI THI</h2>
         <p className="text-slate-500 mb-10 font-bold uppercase text-xs tracking-widest">Hệ thống học tập và kiểm tra Online chuyên nghiệp</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 my-10 text-left">
-          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 shadow-inner">
+          <div className="bg-slate-50 p-5 sm:p-8 rounded-3xl border border-slate-100 shadow-inner">
             <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-[0.2em]">Họ tên thí sinh</p>
             <p className="font-black text-slate-800 text-xl leading-tight">{result.name}</p>
             <p className="text-sm text-slate-500 mt-1 font-bold">SBD: {result.sbd} • Lớp: {result.className}</p>
           </div>
           <div className="bg-blue-600 p-8 rounded-3xl shadow-2xl flex flex-col justify-center transform hover:scale-105 transition">
             <p className="text-[10px] font-black text-white/70 uppercase mb-2 tracking-[0.2em]">Tổng điểm</p>
-            <p className="text-6xl font-black text-white">{result.score.toFixed(2)}</p>
+            <p className="text-4xl sm:text-5xl md:text-6xl font-black text-white">{result.score.toFixed(2)}</p>
           </div>
-          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 shadow-inner">
+          <div className="bg-slate-50 p-5 sm:p-8 rounded-3xl border border-slate-100 shadow-inner">
             <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-[0.2em]">Thời gian hoàn thành</p>
             <p className="font-black text-slate-800 text-xl leading-tight">{result.totalTime}</p>
             <p className="text-sm text-slate-500 mt-1 font-bold">{new Date(result.timestamp).toLocaleDateString('vi-VN')} {new Date(result.timestamp).toLocaleTimeString('vi-VN')}</p>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-6 pt-6 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-6 border-t border-slate-100 sticky bottom-0 bg-white pb-4">
           <button onClick={() => setShowReview(!showReview)} className={btnStyle}>
             {showReview ? 'ĐÓNG XEM CHI TIẾT' : 'XEM LẠI BÀI LÀM'}
           </button>
@@ -78,7 +79,7 @@ React.useEffect(() => {
       {showReview && (
   <div className="space-y-8 animate-fade-in">
     <div className="flex items-center justify-between px-6">
-      <h3 className="text-2xl font-black text-slate-800 uppercase border-l-8 border-blue-600 pl-4">
+      <h3 className="text-lg sm:text-xl md:text-2xl font-black text-slate-800 uppercase border-l-8 border-blue-600 pl-4">
         Chi tiết bài làm
       </h3>
     </div>
@@ -91,9 +92,9 @@ React.useEffect(() => {
         : u?.toString().trim().toLowerCase() === q.a?.toString().trim().toLowerCase();
 
       return (
-        <div key={q.id} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden group">
+        <div key={q.id} className="bg-white rounded-2xl sm:rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden group">
           {/* Header câu hỏi */}
-          <div className={`p-6 flex justify-between items-center ${isCorrect ? 'bg-emerald-50/50' : 'bg-red-50/50'}`}>
+         <div className={`p-4 sm:p-6 flex justify-between items-center ${isCorrect ? 'bg-emerald-50/50' : 'bg-red-50/50'}`}>
             <div className="flex items-center gap-4">
               <span className={`w-12 h-12 flex items-center justify-center rounded-2xl font-black text-xl ${isCorrect ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
                 {idx + 1}
@@ -105,9 +106,9 @@ React.useEffect(() => {
             </div>
           </div>
 
-          <div className="p-8 md:p-10">
+          <div className="p-4 md:p-10">
             {/* 1. Nội dung câu hỏi chính */}
-            <div className="text-xl font-bold text-slate-800 mb-8 leading-relaxed">
+           <div className="text-base sm:text-lg md:text-xl font-bold text-slate-800 mb-6 sm:mb-8 leading-relaxed">
               <MathText content={q.question} />
             </div>
 
@@ -120,7 +121,7 @@ React.useEffect(() => {
                   const isRightAnswer = q.a === label;
                   
                   return (
-                    <div key={i} className={`p-4 rounded-2xl border-2 flex gap-4 items-start ${isUserChoice ? (isCorrect ? 'border-emerald-500 bg-emerald-50' : 'border-red-500 bg-red-50') : (isRightAnswer ? 'border-emerald-500 border-dashed bg-emerald-50/30' : 'border-slate-50 bg-slate-50')}`}>
+                    <div key={i} className={`p-3 sm:p-4 rounded-2xl border-2 flex gap-4 items-start ${isUserChoice ? (isCorrect ? 'border-emerald-500 bg-emerald-50' : 'border-red-500 bg-red-50') : (isRightAnswer ? 'border-emerald-500 border-dashed bg-emerald-50/30' : 'border-slate-50 bg-slate-50')}`}>
                       <span className={`w-8 h-8 shrink-0 flex items-center justify-center rounded-lg font-black ${isUserChoice ? (isCorrect ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white') : 'bg-white text-slate-400 border'}`}>
                         {label}
                       </span>
@@ -188,7 +189,7 @@ React.useEffect(() => {
 
             {/* 5. Giải thích chi tiết */}
             {q.loigiai && (
-              <div className="mt-8 p-6 bg-blue-50/50 rounded-3xl border-2 border-blue-100 border-dashed">
+              <div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-blue-50/50 rounded-2xl sm:rounded-3xl border-2 border-blue-100 border-dashed">
                 <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2">Hướng dẫn giải</p>
                 <div className="text-slate-700 leading-relaxed italic">
                  <MathText content={extractLoigiai(q.loigiai)} />

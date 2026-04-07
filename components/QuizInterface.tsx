@@ -94,8 +94,8 @@ useEffect(() => {
     onFinish({ 
     type: isQuizMode ? 'quiz' : 'exam',
     timestamp: new Date().toISOString(), 
-    examCode: "'" + config.id, 
-    sbd: "'" + student.sbd, 
+    examCode: config.id, 
+    sbd: student.sbd, 
     name: student.name, 
     className: student.class,
     school: student.school,

@@ -83,9 +83,9 @@ React.useEffect(() => {
         Chi tiết bài làm
       </h3>
     </div>
-    console.log("DETAILS:", details);
+    console.log("DETAILS:", result.details);
     {questions.map((q, idx) => {
-    console.log("DETAIL:", detail);
+    console.log("DETAIL:", result.details?.[idx]);
   const isUserChoice = u === label;
   const u = result.details?.[idx]?.answer ?? null;
   if (!result.details || !result.details[idx]) {

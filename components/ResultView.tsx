@@ -84,11 +84,16 @@ React.useEffect(() => {
       </h3>
     </div>
     {questions.map((q, idx) => {
-      const u = result.details?[idx].answer;
+  const detail = result.details?.[idx];
+  if (!detail) return null; // hoặc return 1 block cảnh báo
+
+  const u = detail.answer;
       // Logic kiểm tra đúng/sai cho từng loại câu hỏi
-      const isCorrect = q.type === 'true-false' 
-        ? (Array.isArray(u) && q.s ? u.every((v: any, i: any) => v === q.s![i].a) : false)
-        : u?.toString().trim().toLowerCase() === q.a?.toString().trim().toLowerCase();
+      const isCorrect = q.type === 'true-false'
+  ? (Array.isArray(u) && Array.isArray(q.s)
+      ? u.every((v, i) => v === q.s[i]?.a)
+      : false)
+  : u?.toString().trim().toLowerCase() === q.a?.toString().trim().toLowerCase();
 
       return (
         <div key={q.id} className="bg-white rounded-2xl sm:rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden group">

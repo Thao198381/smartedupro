@@ -83,7 +83,9 @@ React.useEffect(() => {
         Chi tiết bài làm
       </h3>
     </div>
+    console.log("DETAILS:", details);
     {questions.map((q, idx) => {
+    console.log("DETAIL:", detail);
   const detail = result.details?.[idx];
   if (!detail) return null; // hoặc return 1 block cảnh báo
 

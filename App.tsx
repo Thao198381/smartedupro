@@ -96,7 +96,7 @@ const App: React.FC = () => {
       taikhoanapp: user?.isVip ? 'VIP' : 'FREE' 
     });
     setQuestions(quizQuestions);
-    set('quiz');
+    setCurrentView('quiz');
   };
 
   // Kết thúc bài thi và gửi dữ liệu từ đề ma trận

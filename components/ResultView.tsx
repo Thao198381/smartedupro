@@ -92,7 +92,6 @@ React.useEffect(() => {
   return <div key={q.id}>⚠️ Thiếu dữ liệu câu {idx+1}</div>;
 }
 
-  const u = detail.answer;
       // Logic kiểm tra đúng/sai cho từng loại câu hỏi
       const isCorrect = q.type === 'true-false'
   ? (Array.isArray(u) && Array.isArray(q.s)

@@ -1,11 +1,11 @@
-import { API_ROUTING, DEFAULT_API_URL } from './config';
+import { KETQUA_URL, DANHGIA_URL } from './config';
 
 export const postToScript = async (
   payload: any,
   idnumber?: string
 ) => {
   const targetUrl =
-    (idnumber && API_ROUTING[idnumber]) || DEFAULT_API_URL;
+    (idnumber && KETQUA_URL || DANHGIA_URL;
 
   try {
     await fetch(targetUrl, {

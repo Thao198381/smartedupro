@@ -6,14 +6,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <title>Hệ thống học tập và kiểm tra online</title>
     <script src="https://cdn.tailwindcss.com"></script>
-      <script>
+     <script>
   window.MathJax = {
-    tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], processEscapes: true },
-    svg: { fontCache: 'global' }
-  }; 
-
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true,
+      // Thêm gói 'physics' hoặc 'ams' nếu bạn dùng nhiều ký hiệu chuyên sâu
+      packages: {'[+]': ['base', 'ams', 'noerrors', 'noundefined']}
+    },
+    options: {
+      // Giúp MathJax không quét nhầm vào các đoạn code hoặc input
+      ignoreHtmlClass: 'no-mathjax',
+      processHtmlClass: 'mathjax-process'
+    },
+    chtml: {
+      fontCache: 'global'
+    },
+    startup: {
+      // Đảm bảo MathJax sẵn sàng cho việc gọi từ React useEffect
+      typeset: true 
+    }
+  };
 </script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>    
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; overflow-x: hidden; }
@@ -40,6 +57,8 @@
             animation: marquee 30s linear infinite;
         }
     </style>
+
+<link rel="stylesheet" href="/index.css">
 </head>
 <body>
   <div id="root"></div>

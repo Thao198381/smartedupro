@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Student, ExamResult, Question, AppUser } from './types';
-import { API_ROUTING, DEFAULT_API_URL, DANHGIA_URL, fetchApiRouting, fetchAdminConfig } from './config';
+import { KETQUA_URL , DANHGIA_URL, fetchAdminConfig } from './config';
 // Sửa lại đoạn này trong App.tsx của thầy:
 import LandingPage from '@/components/LandingPage';
 import ExamPortal from '@/components/ExamPortal';
@@ -14,9 +14,38 @@ import TeacherWordTask from '@/components/TeacherWordTask';
 // Thêm dấu ngoặc nhọn bao quanh tên hàm
 import { fetchQuestionsBank } from '@/questions';
 import { fetchQuestionsBankW } from '@/questionsWord';
+import ExamRoom from '@/components/ExamRoom';
+
 const App: React.FC = () => {
+ // --- PHẦN 1: BẢO MẬT (CHẶN VÀO TRỰC TIẾP) ---
+useEffect(() => {
+  // Danh sách các domain được phép truy cập vào trang con
+  const ALLOWED_ORIGINS = ["smarteduv2.vercel.app", "thayhabacninh.vercel.app"];
+  const HOME_URL = "https://smarteduv2.vercel.app";
+  
+  const referrer = document.referrer;
+  const currentUrl = window.location.href;
+
+  // 1. Kiểm tra xem người dùng có đang ở chính trang chủ không (hoặc localhost để test)
+  const isAtHome = currentUrl === HOME_URL + "/" || 
+                   currentUrl.includes("localhost");
+
+  if (isAtHome) return; // Nếu là trang chủ thì không cần check referrer
+
+  // 2. Kiểm tra xem referrer có thuộc danh sách được phép hay không
+  // Sử dụng .some() để kiểm tra nếu referrer chứa bất kỳ domain nào trong mảng
+  const isAuthorized = ALLOWED_ORIGINS.some(domain => referrer.includes(domain));
+
+  if (!referrer || !isAuthorized) {
+    alert("⚠️ Bạn cần đăng ký/đăng nhập để tiếp tục");
+    window.location.href = HOME_URL;
+  }
+}, []);
+
+  // --- PHẦN 2: QUẢN LÝ TRẠNG THÁI (STATES) ---
+
   // 1. Quản lý các màn hình (Views)
-  const [currentView, setCurrentView] = useState<'landing' | 'portal' | 'quiz' | 'result' | 'admin' | 'teacher_task'>('landing');
+ const [currentView, setCurrentView] = useState<'landing' | 'portal' | 'quiz' | 'result' | 'admin' | 'teacher_task' | 'exam'>('landing');
   
   // 2. Quản lý chế độ (Mode) cho Admin hoặc Giáo viên
   const [adminMode, setAdminMode] = useState<'matran' | 'cauhoi' | 'word'>('matran'); 
@@ -29,43 +58,21 @@ const App: React.FC = () => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showVipModal, setShowVipModal] = useState(false);
+  const goHome = () => {
+    setCurrentView('landing');
+    setActiveExam(null);
+    setActiveStudent(null);
+    setExamResult(null);
+  };
 
-  const [showQuizModal, setShowQuizModal] = useState<{ num: number, pts: number } | null>(null);
-  
-  const [quizMode, setQuizMode] = useState<'free' | 'gift' | null>(null);
 
-  const [quizConfig, setQuizConfig] = useState<{
-  numQuestions: number;
-  pointsPerQuestion: number;
-} | null>(null);
-
- // --- 1. XỬ LÝ LINK (CHẠY TỨC THÌ, KHÔNG ĐỢI API) ---
-
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const modeParam = params.get("mode");
-  const gradeParam = params.get("grade");
-
-  if (modeParam === "quiz") {
-    setCurrentView("landing");
-    // KHÔNG set true, mà set OBJECT chứa cấu hình quiz
-    setShowQuizModal({ num: 10, pts: 1.0 }); 
-  }
-
-  if (gradeParam && modeParam !== "quiz") {
-    setSelectedGrade(gradeParam);
-    setCurrentView("portal");
-  }
-}, []);
-  
-     // Khởi tạo dữ liệu hệ thống
+  // Khởi tạo dữ liệu hệ thống
   useEffect(() => {
     const initApp = async () => {
       try {
         console.log("🚀 Hệ thống bắt đầu khởi tạo...");
         await Promise.all([
-          fetchAdminConfig(),
-          fetchApiRouting(),
+          fetchAdminConfig(),          
           fetchQuestionsBank(),
           fetchQuestionsBankW()
         ]);
@@ -76,16 +83,16 @@ useEffect(() => {
     };
     initApp();
   }, []);
-  
 
-  
   // Xử lý bắt đầu thi (Portal)
-  const handleStartExam = (config: any, student: Student, selectedQuestions: Question[]) => {
-    setActiveExam(config);
-    setActiveStudent(student);
-    setQuestions(selectedQuestions);
-    setCurrentView('quiz');
-  };
+ const handleStartExam = (config: any, student: Student, selectedQuestions: Question[]) => {
+  console.log("Học sinh bắt đầu thi, IDGV là:", student.idgv); // Log để check
+  setActiveExam(config);
+  setActiveStudent(student);
+  setQuestions(selectedQuestions);
+  setCurrentView('exam'); // ✅ ĐÚNG hoặc Set
+ // Đảm bảo chuyển sang view 'exam' để dùng ExamRoom
+};
 
   // Xử lý bắt đầu Quiz nhanh (Landing)
   const handleStartQuizMode = (num: number, pts: number, quizStudent: any) => {
@@ -94,9 +101,9 @@ useEffect(() => {
     for(let i=0; i<num; i++) {
       const q = getRandomQuizQuestion(Array.from(usedIds) as any);
       usedIds.add(q.id);
-      quizQuestions.push({...q, shuffledOptions: q.o ? [...q.o].sort(() => 1.0 - Math.random()) : undefined});
+      quizQuestions.push({...q, shuffledOptions: q.o ? [...q.o].sort(() => 0.5 - Math.random()) : undefined});
     }
-    setActiveExam({ id: 'QUIZ', title: `Luyện tập Quiz (${num} câu)`, time: 10, mcqPoints: pts, tfPoints: pts, saPoints: pts, gradingScheme: 1 });
+    setActiveExam({ id: 'QUIZ', title: `Luyện tập Quiz (${num} câu)`, time: 15, mcqPoints: pts, tfPoints: pts, saPoints: pts, gradingScheme: 1 });
     setActiveStudent({ 
       sbd: quizStudent.phoneNumber || 'QUIZ_GUEST', 
       name: quizStudent.name || 'Khách', 
@@ -106,39 +113,85 @@ useEffect(() => {
       stk: quizStudent.stk,
       bank: quizStudent.bank,
       limit: 10, 
-      limittab: 2, 
+      limittab: 10, 
       idnumber: 'QUIZ', 
       taikhoanapp: user?.isVip ? 'VIP' : 'FREE' 
     });
     setQuestions(quizQuestions);
-    setCurrentView('quiz');
+    set('quiz');
   };
 
-  // Kết thúc bài thi và gửi dữ liệu
-  const handleFinishExam = async (result: ExamResult) => {
-    setExamResult(result);
-    setCurrentView('result');
-    let targetUrl = DEFAULT_API_URL;
-    if (result.type === 'quiz') targetUrl = DANHGIA_URL;
-    else if (activeStudent && API_ROUTING[activeStudent.idnumber]) targetUrl = API_ROUTING[activeStudent.idnumber];
+  // Kết thúc bài thi và gửi dữ liệu từ đề ma trận
+  const handleFinishExam = async (matrixResult: ExamResult) => {
 
-    try {
-      await fetch(targetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(result) });
-    } catch (e) { console.error("Lỗi gửi kết quả:", e); }
+  // 👇 Tạo payload riêng cho MA TRẬN
+  const matrixPayload = {
+    examCode: activeExam?.code || activeExam?.id,   // bắt buộc
+    sbd: activeStudent?.sbd,
+    name: activeStudent?.name,
+    className: activeStudent?.class,
+    score: matrixResult.score ?? 0,
+    totalTime: matrixResult.time ?? 0,
+    details: matrixResult.details ?? []
   };
 
-  const goHome = () => {
-    window.location.href = "https://smartedu-vn.vercel.app/";
+  // 👇 Set riêng cho ResultView
+  setExamResult({
+    score: matrixPayload.score,
+    correct: matrixResult.correct ?? 0,
+    total: matrixResult.total ?? 0,
+    time: matrixPayload.totalTime,
+    type: 'matrix'
+  });
+
+  setCurrentView('result');
+
+  let targetUrl = KETQUA_URL;  
+
+  try {
+    await fetch(targetUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify(matrixPayload)
+    });   
+  } catch (e) {
+    console.error("❌ Lỗi gửi kết quả:", e);
+  }
+};
+
+  // Kết thúc bài thi và gửi dữ liệu từ đề nhập word
+ const handleFinishWord = async (result: any) => {
+
+  const normalizedResult: ExamResult = {
+    score: Number(result.tongdiem ?? 0),
+    correct: result.correct ?? 0,
+    total: result.total ?? 0,
+    time: result.timeUsed ?? 0,
+    type: 'exam'
   };
 
-  return (
+  setExamResult(normalizedResult);
+  setCurrentView('result');
+
+  let targetUrl = KETQUA_URL;
+  try {
+    await fetch(targetUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify(normalizedResult)
+    });
+  } catch (e) {
+    console.error("Lỗi gửi kết quả:", e);
+  }
+};
+ return (
     <AppProvider>
       <div className="min-h-screen flex flex-col font-sans selection:bg-blue-100 bg-slate-50 text-slate-900">
         <header className="bg-blue-800 text-white py-8 md:py-12 shadow-2xl text-center relative overflow-hidden border-b-8 border-blue-900 px-4">
           <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
           <div className="relative z-10">
             <h1 className="text-2xl md:text-5xl font-black uppercase tracking-tighter mb-2 drop-shadow-lg leading-tight">
-              HỆ THỐNG HỌC TẬP VÀ KIỂM TRA ONLINE <br className="md:hidden" /> THPT
+              HỆ THỐNG HỌC TẬP VÀ KIỂM TRA ONLINE  <br className="md:hidden" /> THPT
             </h1>
             <p className="text-sm md:text-lg opacity-90 font-black tracking-wide max-w-2xl mx-auto uppercase">
               Học tập chuyên nghiệp - Kết quả bứt phá
@@ -156,8 +209,6 @@ useEffect(() => {
                 onOpenAuth={() => setShowAuth(true)} 
                 onOpenVip={() => user ? setShowVipModal(true) : setShowAuth(true)}
                 onSelectGrade={(grade) => { setSelectedGrade(grade.toString()); setCurrentView('portal'); }} 
-                showQuizModal={showQuizModal} // Truyền biến này xuống
-                setShowQuizModal={setShowQuizModal} // Truyền cả hàm để đóng modal
                 onSelectQuiz={handleStartQuizMode}
                 setView={(mode: any) => {
                   if (mode === 'word' || mode === 'matran') {
@@ -196,7 +247,26 @@ useEffect(() => {
                 isQuizMode={activeExam.id === 'QUIZ'} 
               />
             )}
-
+            {/* 5. Giao diện làm bài CHÍNH THỨC (Dành cho học sinh làm đề Word) */}
+{currentView === 'exam' && activeExam && activeStudent && (
+  <ExamRoom 
+    questions={questions}
+    studentInfo={{
+      idgv: activeStudent.idgv, 
+      sbd: activeStudent.sbd,
+      name: activeStudent.name,
+      className: activeStudent.class,
+      examCode: activeExam.code // Mã đề biến đổi 601, 1001...
+    }}
+    duration={activeExam.fullTime}
+    minSubmitTime={activeExam.miniTime}
+    maxTabSwitches={activeExam.tabLimit}
+   scoreMCQ={Number(activeExam.scoreMCQ) || 0.25}
+   scoreTF={Number(activeExam.scoreTF) || 1.0}
+   scoreSA={Number(activeExam.scoreSA) || 0.5}
+   onFinish={handleFinishWord} // Nộp về sheet(ketqua) 7 cột
+  />
+)}
             {/* 6. Kết quả bài thi */}
             {currentView === 'result' && examResult && (
               <ResultView result={examResult} questions={questions} onBack={goHome} />
@@ -234,7 +304,6 @@ const AuthModal = ({ onClose, onSuccess }: { onClose: () => void, onSuccess: (u:
       setLoading(false);
     }
   };
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
       <div className="bg-white w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl relative animate-fade-in border border-slate-100">

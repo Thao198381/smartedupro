@@ -1,44 +1,26 @@
 
 import { Topic, ExamCodeDefinition, NewsItem, FixedConfig } from './types';
-export const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyQzEh1xGZFoAEas0fmxBY0bcz3P82nBtqSZKpbu9K7JzGEjVxCvCM8lIs24mp8IGg/exec";
-export const DANHGIA_URL = DEFAULT_API_URL;
+export const DANHGIA_URL = "https://script.google.com/macros/s/AKfycbwZdb9kvZk6acp9aVkZBvsV-4hXpnQOdHYzOS1jHFmvwPsYcjXz7IDBQ8xuF_PgB3Bkkg/exec";
+export const KETQUA_URL = "https://script.google.com/macros/s/AKfycbw06Dnf2Spsrm19NseYX-mucqa8b8Ayg0ni8B2hZNGVmjb3uoGW7VGkKSnOepKeYFQdGQ/exec";
+export const ADMIN2_URL = "https://script.google.com/macros/s/AKfycbyQzEh1xGZFoAEas0fmxBY0bcz3P82nBtqSZKpbu9K7JzGEjVxCvCM8lIs24mp8IGg/exec";
+export const SPREADSHEET_ID_ADMIN = "1LlFAI1J0b7YQ84BL674r2kr3wSoW9shgsXSIXVPDypM"; // Admin 1
 // Khởi tạo rỗng, chúng ta sẽ lấp đầy nó sau khi App chạy
-export let API_ROUTING: Record<string, string> = {};
 export let TOPICS_DATA: Record<string, Topic[]> = {
-  "12": [], "11": [], "10": [], "9": [], "8": [], "7": [], "6": []
+  "6": [], "7": [], "8": [], "9": [], "10": [], "11": [], "12": []
 };
-export const GRADES = [12, 11, 10];
+export const GRADES = [6, 7, 8, 9, 10, 11, 12];
 // Hàm này sẽ gọi lên Script Admin để lấy danh sách link
-export const fetchApiRouting = async () => {
-  try {
-    const response = await fetch(`${DEFAULT_API_URL}?action=getRouting`);
-    const result = await response.json();
-    if (result.status === "success") {
-      const mapping: Record<string, string> = {};
-      result.data.forEach((item: any) => {
-        if (item.idNumber && item.link) {
-          mapping[item.idNumber.toString().trim()] = item.link.trim();
-        }
-      });
-      API_ROUTING = mapping;
-      return mapping;
-    }
-  } catch (e) {
-    console.error("Lỗi nạp Routing:", e);
-  }
-  return {};
-};
 // Nạp chuyên đề
 // config.ts
 export const fetchAdminConfig = async () => {
   try {
-    const response = await fetch(`${DANHGIA_URL}?action=getAppConfig`);
+    const response = await fetch(`${KETQUA_URL}?action=getAppConfig`);
     const result = await response.json();
 
     if (result.status === "success" && result.data) {
       const { topics } = result.data;
       const newTopics: Record<string, Topic[]> = { 
-        "12": [], "11": [], "10": [], "9": [], "8": [], "7": [], "6": [] 
+        "6": [], "7": [], "8": [], "9": [], "10": [], "11": [], "12": [] 
       };
       
       topics.forEach((t: any) => {

@@ -188,10 +188,16 @@ return (
     <div>
         {examStarted ? (
             <ExamRoom 
-                questions={questions}
+                questions={questions} 
                 studentInfo={studentInfo}
-                // ... các props khác
-                onFinish={handleFinishWord} // Đảm bảo tên này khớp với hàm ở trên
+                duration={duration} 
+                minSubmitTime={minSubmitTime}
+                maxTabSwitches={maxTabSwitches}
+                deadline={deadline}
+               scoreMCQ={scoreMCQ}
+               scoreTF={scoreTF}
+              scoreSA={scoreSA}
+              onFinish={handleFinishWord} // Đảm bảo tên này khớp với hàm ở trên
             />
         ) : (
             <LandingPageUI />

@@ -886,7 +886,7 @@ const handleRedirect = () => {
   return (
     <>
     {/* TRƯỜNG HỢP 1: ĐANG THI (Hiện phòng thi, ẩn toàn bộ Landing) */}
-    {examStarted ? (
+   {examStarted ? (
   <div className="animate-in slide-in-from-bottom duration-500">
     <ExamRoom 
       questions={questions} 
@@ -898,40 +898,9 @@ const handleRedirect = () => {
       scoreMCQ={scoreMCQ}
       scoreTF={scoreTF}
       scoreSA={scoreSA}
-      onFinish={async (resultData) => {
-  setExamStarted(false);
-  const targetUrl = KETQUA_URL;
-
-  // Hứng điểm an toàn: Kiểm tra cả totalScore và tongdiem để không bị undefined
-  const rawScore = resultData.totalScore ?? resultData.tongdiem ?? 0;
-  const diemHienThi = String(rawScore).replace('.', ',');
-
-  const payload = {
-    action: "submitExamWord",
-    timestamp: new Date().toLocaleString('vi-VN'),   
-    exams: String(studentInfo.examCode || "").toUpperCase(),
-    sbd: String(studentInfo.sbd || ""),
-    name: String(studentInfo.name || ""),
-    class: String(studentInfo.class || ""), // Đảm bảo key này khớp với GAS
-    tongdiem: diemHienThi, 
-    time: resultData.time || 0,
-    idgv: String(studentInfo.idgv || ""),
-    details: JSON.stringify(resultData.details || [])
-  };
-
-  try {
-    await fetch(targetUrl, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify(payload),
-    });
-    alert(`Nộp bài thành công! Điểm của bạn: ${diemHienThi}`);
-  } catch (e) {
-    console.error("Lỗi:", e);
-  }
-}}
+      onFinish={handleFinishWord} // Gọi hàm đã định nghĩa ở ngoài
     />
-  </div> // Đóng thẻ div này trước khi đóng dấu ngoặc nhọn
+  </div> 
     ) : (
     <div className="min-h-screen bg-slate-50 font-sans pb-12 overflow-x-hidden">
       

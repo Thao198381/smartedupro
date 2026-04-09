@@ -123,7 +123,7 @@ const App: React.FC = () => {
       body: JSON.stringify(payload),
     });
     const res = await response.json();
-    const resText = await response.text(); // Đọc dạng text trước để tránh lỗi JSON parse
+    const resText = response.text(); // Đọc dạng text trước để tránh lỗi JSON parse
   console.log("Phản hồi thô từ GAS:", resText);
     if (res.status === "success") {
       setExamResult(results);

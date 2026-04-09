@@ -830,7 +830,37 @@ const handleRedirect = () => {
   
   setShowSubjectModal(false);
 };
-  
+  const handleFinishExam = async (resultData) => {
+  // resultData chứa { tongdiem, time, timestamp, details } truyền từ ExamRoom sang
+  setExamStarted(false); 
+
+  const currentIDGV = studentInfo.idgv.toString().trim();
+  const targetUrl = KETQUA_URL;
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        action: "submitExam", // Hành động ghi điểm
+        sbd: studentInfo.sbd,
+        examCode: studentInfo.examCode,
+        className: studentInfo.className,
+        idgv: currentIDGV,
+        name: studentInfo.name,
+        ...resultData // Đẩy toàn bộ tongdiem, time... vào body
+      }),
+    });
+
+    const finalRes = await response.json();
+    if (finalRes.status === "success") {
+      alert("✅ Đã lưu kết quả vào hệ thống!");
+    }
+  } catch (error) {
+    console.error("Lỗi gửi điểm:", error);
+    alert("❌ Lỗi kết nối, không thể lưu điểm. Hãy chụp màn hình kết quả!");
+  }
+};
   const updateTopicRow = (index, field, value) => {
     const newTopics = [...selectedTopics];
     newTopics[index][field] = value;

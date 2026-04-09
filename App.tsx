@@ -117,11 +117,14 @@ const App: React.FC = () => {
   };
 
   try {
+    console.log("Đang gửi payload lên GAS:", payload); // Thêm dòng này
     const response = await fetch(targetUrl, {
       method: "POST",
       body: JSON.stringify(payload),
     });
     const res = await response.json();
+    const resText = await response.text(); // Đọc dạng text trước để tránh lỗi JSON parse
+  console.log("Phản hồi thô từ GAS:", resText);
     if (res.status === "success") {
       setExamResult(results);
       setCurrentView('result');
@@ -152,11 +155,14 @@ const App: React.FC = () => {
   };
 
   try {
+   console.log("Đang gửi payload lên GAS:", payload); // Thêm dòng này
     await fetch(targetUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain" }, // Dùng text/plain để tránh lỗi CORS với GAS
       body: JSON.stringify(payload),
     });
+   const resText = await response.text(); // Đọc dạng text trước để tránh lỗi JSON parse
+  console.log("Phản hồi thô từ GAS:", resText);
     setExamResult(results);
     setCurrentView('result');
   } catch (error) {

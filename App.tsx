@@ -133,33 +133,35 @@ const App: React.FC = () => {
 
   // Kết thúc bài thi và gửi dữ liệu từ đề nhập word
  const handleFinishWord = async (results) => {
-  const currentIDGV = activeStudent.idgv.toString().trim();
+  setExamStarted(false); // Nếu có state này
   const targetUrl = KETQUA_URL;
+  
+  // Chuẩn hóa điểm số (dùng dấu phẩy nếu bạn muốn hiển thị kiểu VN)
+  const diemSo = String(results.score || 0).replace('.', ',');
 
   const payload = {
-    action: "submitExamWord", // Action riêng cho đề lẻ
+    action: "submitExamWord",
     timestamp: new Date().toLocaleString('vi-VN'),
-    exams: activeExam.code,
+    exams: activeExam?.code || activeStudent?.examCode || "", // Thống nhất dùng key 'exams'
     sbd: activeStudent.sbd,
     name: activeStudent.name,
     class: activeStudent.class,
-    tongdiem: results.score,
-    time: results.timeSpent,
-    idgv: currentIDGV
+    tongdiem: diemSo,
+    time: results.timeSpent || results.time || 0,
+    idgv: activeStudent.idgv
   };
 
   try {
-    const response = await fetch(targetUrl, {
+    await fetch(targetUrl, {
       method: "POST",
+      headers: { "Content-Type": "text/plain" }, // Dùng text/plain để tránh lỗi CORS với GAS
       body: JSON.stringify(payload),
     });
-    const res = await response.json();
-    if (res.status === "success") {
-      setExamResult(results);
-      setCurrentView('result');
-    }
+    setExamResult(results);
+    setCurrentView('result');
   } catch (error) {
-    alert("Lỗi ghi kết quả đề lẻ: " + error.message);
+    console.error("Lỗi:", error);
+    alert("Không thể ghi kết quả, vui lòng chụp màn hình điểm số!");
   }
 };
  return (

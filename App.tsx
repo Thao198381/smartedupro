@@ -233,7 +233,7 @@ const App: React.FC = () => {
       idgv: activeStudent.idgv, 
       sbd: activeStudent.sbd,
       name: activeStudent.name,
-      className: activeStudent.class,
+      class: activeStudent.class,
       examCode: activeExam.code // Mã đề biến đổi 601, 1001...
     }}
     duration={activeExam.fullTime}

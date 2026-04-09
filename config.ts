@@ -2,8 +2,35 @@
 import { Topic, ExamCodeDefinition, NewsItem, FixedConfig } from './types';
 export const DANHGIA_URL = "https://script.google.com/macros/s/AKfycbwZdb9kvZk6acp9aVkZBvsV-4hXpnQOdHYzOS1jHFmvwPsYcjXz7IDBQ8xuF_PgB3Bkkg/exec";
 export const KETQUA_URL = "https://script.google.com/macros/s/AKfycbw06Dnf2Spsrm19NseYX-mucqa8b8Ayg0ni8B2hZNGVmjb3uoGW7VGkKSnOepKeYFQdGQ/exec";
-export const ADMIN2_URL = "https://script.google.com/macros/s/AKfycbyQzEh1xGZFoAEas0fmxBY0bcz3P82nBtqSZKpbu9K7JzGEjVxCvCM8lIs24mp8IGg/exec";
+// https://script.google.com/macros/s/AKfycbzfpzVFmGoaeB240bzJj-dTagvv6Rt5sYfqPcm0a9GyPxvEuf8z8W65ykS4M-P-KgCu/exec
+//export const ADMIN2_URL = "https://script.google.com/macros/s/AKfycbyQzEh1xGZFoAEas0fmxBY0bcz3P82nBtqSZKpbu9K7JzGEjVxCvCM8lIs24mp8IGg/exec";
 export const SPREADSHEET_ID_ADMIN = "1LlFAI1J0b7YQ84BL674r2kr3wSoW9shgsXSIXVPDypM"; // Admin 1
+
+// 1. Lấy mã môn từ URL
+const getSubFromUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('sub') || "toan";
+};
+const MAP_KETQUA = {
+  "toan": "https://script.google.com/macros/s/AKfycbw06Dnf2Spsrm19NseYX-mucqa8b8Ayg0ni8B2hZNGVmjb3uoGW7VGkKSnOepKeYFQdGQ/exec",
+  "vat-li": "https://script.google.com/macros/s/AKfycbzfpzVFmGoaeB240bzJj-dTagvv6Rt5sYfqPcm0a9GyPxvEuf8z8W65ykS4M-P-KgCu/exec",
+  "hoa-hoc": "https://script.google.com/macros/s/...link_hoa.../exec",
+  "hoa-hoc": "https://script.google.com/macros/s/...link_hoa.../exec",
+  "sinh-hoc": "https://script.google.com/macros/s/...link_hoa.../exec",
+  "ngu-van": "https://script.google.com/macros/s/...link_hoa.../exec",
+  "tieng-anh": "https://script.google.com/macros/s/...link_hoa.../exec",
+  "lich-su": "https://script.google.com/macros/s/...link_hoa.../exec",
+  "dia-li": "https://script.google.com/macros/s/...link_hoa.../exec",
+  "kt-pl": "https://script.google.com/macros/s/...link_hoa.../exec",
+  "cn-cn": "https://script.google.com/macros/s/...link_hoa.../exec",
+  "cn-nn": "https://script.google.com/macros/s/...link_hoa.../exec",
+  "tin-hoc": "https://script.google.com/macros/s/...link_hoa.../exec" 
+};
+
+// Web2 tự động nhận KETQUA_URL theo mã môn
+export const KETQUA_URL1 = MAP_KETQUA[getSubFromUrl()] || MAP_KETQUA["toan"];
+console.log("Link kết quả tương ứng:", KETQUA_URL);
+
 // Khởi tạo rỗng, chúng ta sẽ lấp đầy nó sau khi App chạy
 export let TOPICS_DATA: Record<string, Topic[]> = {
   "6": [], "7": [], "8": [], "9": [], "10": [], "11": [], "12": []

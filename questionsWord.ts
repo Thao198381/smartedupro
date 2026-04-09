@@ -52,8 +52,7 @@ const shuffleByTypeParts = (data: Question[]): Question[] => {
 
 export const fetchQuestionsBankW = async (
   examCode?: string,
-  idgv?: string,
-  customUrl?: string
+  idgv?: string  
 ): Promise<Question[]> => {
   try {
     let targetUrl = KETQUA_URL;

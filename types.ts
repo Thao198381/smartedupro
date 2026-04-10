@@ -85,7 +85,7 @@ export interface ExamResult {
   examCode: string;
   sbd: string;
   name: string;
-  className: string;
+  class: string;
   school?: string;
   phoneNumber?: string;
   score: number;

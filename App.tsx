@@ -113,7 +113,8 @@ const App: React.FC = () => {
     class: activeStudent.class,
     tongdiem: results.score,
     time: results.time || results.totalTime,
-    idgv: currentIDGV
+    idgv: currentIDGV,
+    details: JSON.stringify(results.details || [])
   };
 
   try {

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { DANHGIA_URL, ADMIN_CONFIG, OTHER_APPS, KETQUA_URL } from '../config';
+import { DANHGIA_URL, ADMIN_CONFIG, OTHER_APPS, KETQUA_URL, ADMIN2_URL, } from '../config';
 import { AppUser, Student } from '../types';
 import { postToScript } from '../postToScript';
 import ExamRoom from './ExamRoom';
 import { fetchScore } from '../questions';
-// 1. Thêm dòng này vào trên cùng của file (sửa đường dẫn cho đúng)
+
+
+
 interface LandingPageProps {
   onSelectGrade: (grade: number) => void;
   onSelectQuiz: (num: number, pts: number, quizStudent: Partial<Student>) => void;
@@ -480,7 +482,7 @@ const handleStudentSubmit = async (e) => {
       setStudentInfo({
         ...studentInfo,
         name: nameFromGas,
-        class: classFromGas
+        className: classFromGas
       });
 
       setExamStarted(true); 
@@ -758,7 +760,7 @@ useEffect(() => { console.log("Danh sách chuyên đề hiện có:", appConfig?
   useEffect(() => {
     const fetchTop10 = async () => {
       try {
-        const res = await fetch(`${KETQUA_URL}?type=top10`);
+        const res = await fetch(`${DANHGIA_URL}?type=top10`);
         const json = await res.json();
         const data = json.data || json;
         if (Array.isArray(data)) setStats(prev => ({ ...prev, top10: data }));
@@ -828,7 +830,37 @@ const handleRedirect = () => {
   
   setShowSubjectModal(false);
 };
-  
+  const handleFinishExam = async (resultData) => {
+  // resultData chứa { tongdiem, time, timestamp, details } truyền từ ExamRoom sang
+  setExamStarted(false); 
+
+  const currentIDGV = studentInfo.idgv.toString().trim();
+  const targetUrl = KETQUA_URL;
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        action: "submitExam", // Hành động ghi điểm
+        sbd: studentInfo.sbd,
+        examCode: studentInfo.examCode,
+        className: studentInfo.className,
+        idgv: currentIDGV,
+        name: studentInfo.name,
+        ...resultData // Đẩy toàn bộ tongdiem, time... vào body
+      }),
+    });
+
+    const finalRes = await response.json();
+    if (finalRes.status === "success") {
+      alert("✅ Đã lưu kết quả vào hệ thống!");
+    }
+  } catch (error) {
+    console.error("Lỗi gửi điểm:", error);
+    alert("❌ Lỗi kết nối, không thể lưu điểm. Hãy chụp màn hình kết quả!");
+  }
+};
   const updateTopicRow = (index, field, value) => {
     const newTopics = [...selectedTopics];
     newTopics[index][field] = value;
@@ -853,7 +885,56 @@ const handleRedirect = () => {
     .sort((a,b) => Number(b.grade) - Number(a.grade));
 
 }, [matrixTopics, selectedGrade]);
-  return ( 
+  return (
+    <>
+    {/* TRƯỜNG HỢP 1: ĐANG THI (Hiện phòng thi, ẩn toàn bộ Landing) */}
+    {examStarted ? (
+  <div className="animate-in slide-in-from-bottom duration-500">
+    <ExamRoom 
+      questions={questions} 
+      studentInfo={studentInfo}
+      duration={duration} 
+      minSubmitTime={minSubmitTime}
+      maxTabSwitches={maxTabSwitches}
+      deadline={deadline}
+      scoreMCQ={scoreMCQ}
+      scoreTF={scoreTF}
+      scoreSA={scoreSA}
+      onFinish={async (resultData) => {
+  setExamStarted(false);
+  const targetUrl = KETQUA_URL;
+
+  // Hứng điểm an toàn: Kiểm tra cả totalScore và tongdiem để không bị undefined
+  const rawScore = resultData.totalScore ?? resultData.tongdiem ?? 0;
+  const diemHienThi = String(rawScore).replace('.', ',');
+
+  const payload = {
+    action: "submitExam",
+    timestamp: new Date().toLocaleString('vi-VN'),   
+    exams: String(studentInfo.examCode || "").toUpperCase(),
+    sbd: String(studentInfo.sbd || ""),
+    name: String(studentInfo.name || ""),
+    class: String(studentInfo.className || ""), // Đảm bảo key này khớp với GAS
+    tongdiem: diemHienThi, 
+    time: resultData.time || 0,
+    idgv: String(studentInfo.idgv || ""),
+    details: JSON.stringify(resultData.details || [])
+  };
+
+  try {
+    await fetch(targetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(payload),
+    });
+    alert(`Nộp bài thành công! Điểm của bạn: ${diemHienThi}`);
+  } catch (e) {
+    console.error("Lỗi:", e);
+  }
+}}
+    />
+  </div> // Đóng thẻ div này trước khi đóng dấu ngoặc nhọn
+    ) : (
     <div className="min-h-screen bg-slate-50 font-sans pb-12 overflow-x-hidden">
       
      {/* 1. TOP NAV (Style SmartEdu - Đã tích hợp VIP lấp lánh) */}
@@ -869,34 +950,12 @@ const handleRedirect = () => {
           <div className="flex gap-3 items-center">
              {/* Nếu CHƯA đăng nhập */}
              {!useracc ? (
-              <div className="flex gap-3 items-center">
-  <div className="relative group cursor-pointer transition-all duration-300 hover:scale-105">
-    {/* Nút Admin vàng óng ánh */}
-    <div className="relative overflow-hidden px-4 py-2 rounded-full flex items-center gap-2 
-                    bg-gradient-to-r from-yellow-600 via-yellow-300 to-yellow-600 
-                    border-2 border-yellow-200 shadow-[0_0_15px_rgba(234,179,8,0.5)] 
-                    animate-pulse">
-      
-      {/* Logo sao vàng năm cánh */}
-      <div className="bg-red-600 rounded-full p-1 shadow-inner flex items-center justify-center border border-yellow-200">
-        <i className="fas fa-star text-yellow-300 text-xs sm:text-sm"></i>
-      </div>
-
-      {/* Text Admin */}
-      <span className="text-red-900 font-black text-xs sm:text-sm uppercase tracking-tighter drop-shadow-sm">
-        Admin: <span className="text-red-800">NGUYỄN VĂN HÀ</span>
-      </span>
-
-      {/* Hiệu ứng tia sáng chạy qua (Shimmer) */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="w-full h-full bg-gradient-to-r from-transparent via-white/60 to-transparent -translate-x-full animate-shimmer"></div>
-      </div>
-    </div>
-    
-    {/* Hiệu ứng hào quang lấp lánh xung quanh */}
-    <div className="absolute -inset-1 bg-yellow-400 rounded-full blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-  </div>
-</div>
+               <button 
+                onClick={() => setAuthMode('login')} 
+                className="bg-slate-100 hover:bg-blue-600 hover:text-white px-3 py-1.5 text-xs sm:text-sm rounded-full text-sm font-black uppercase transition-all"
+               >
+                 Học sinh đăng nhập
+               </button>
              ) : (
                /* Nếu ĐÃ đăng nhập: Hiện số điện thoại và VIP lấp lánh */
                <div className={`relative px-3 py-1.5 text-xs sm:text-sm rounded-full text-sm font-black uppercase transition-all flex items-center gap-2 shadow-sm border ${
@@ -1128,13 +1187,13 @@ const handleRedirect = () => {
           {/* CỤM NÚT ĐIỀU KHIỂN */}
           <div className="bg-white p-4 rounded-[2rem] shadow-lg border border-slate-100 flex flex-col gap-3">
             <a
-  href="#"
+  href="https://thayhabacninh.vercel.app/?mode=quiz"
   target="_blank"
   rel="noopener noreferrer"
   className="w-full bg-orange-500 text-white p-4 rounded-2xl font-black text-xs uppercase shadow-lg border-b-4 border-orange-700 hover:brightness-110 active:scale-95 touch-manipulation transition-all flex items-center justify-center gap-2"
 >
   <i className="fas fa-gift animate-bounce"></i>
-  SẴN SÀNG VÀO THI
+  SĂN QUÀ QUIZ
 </a>
            <div className="grid grid-cols-2 gap-2">
 {[12, 11, 10].map(g => (
@@ -1173,14 +1232,6 @@ const handleRedirect = () => {
 >
   <i className="fas fa-search text-xs"></i> 
   <span>Lời giải</span>
-</button>
-{/* Nút tải điểm - Nằm bên dưới */}
-<button 
-  onClick={() => setShowModal(true)}
-  className="bg-orange-500 text-white p-2.5 min-h-[44px] rounded-xl font-black text-xs uppercase border-b-4 border-orange-700 transition-all active:scale-95 touch-manipulation flex items-center justify-center gap-2"
->
-  <i className="fas fa-search text-xs"></i> 
-  <span>Tải điểm</span>
 </button>
             <div className="relative w-full">
   
@@ -1274,7 +1325,29 @@ const handleRedirect = () => {
                 </button>
               </div>
             </div>
-          </div>        
+          </div>
+
+          {/* TOP 10 CAO THỦ */}
+          <div className="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden flex flex-col h-[420px] lg:h-[480px]">
+            <div className="bg-slate-900 p-4 text-white font-black text-xs uppercase text-center tracking-widest flex items-center justify-center gap-2 font-black">
+              <i className="fas fa-crown text-yellow-400"></i> Bảng Vàng Cao Thủ
+            </div>
+            <div className="p-2 space-y-2 flex-grow overflow-y-auto no-scrollbar scroll-smooth bg-slate-50/50">
+              {stats.top10 && stats.top10.length > 0 ? stats.top10.map((item, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm transition-transform active:scale-95 touch-manipulation">
+                  <div className={`w-8 text-center text-[12px] sm:text-[14px] font-black ${index < 3 ? 'text-yellow-600' : 'text-slate-300'}`}>{index + 1}</div>
+                  <div className="flex-1 overflow-hidden">
+                    <div className="text-sm font-black uppercase truncate text-slate-700">{item.name}</div>
+                    <div className="text-[9px] text-slate-400 font-bold italic">{item.idPhone}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[12px] font-black text-red-600">{item.score} đ</div>
+                    <div className="text-[8px] text-slate-400">{item.time}s</div>
+                  </div>
+                </div>
+              )) : <div className="p-10 text-center text-xs font-bold text-slate-300 uppercase">Đang tải...</div>}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1949,7 +2022,9 @@ const handleRedirect = () => {
               </div>
             </div>
           </div>
-        )}     
+        )}
+      </div>
+    )}
       {showScoreModal && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
     
@@ -2224,7 +2299,8 @@ const handleRedirect = () => {
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     `}</style>
-   );
+  </>
+  );
 }
 
 export default LandingPage;

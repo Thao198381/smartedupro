@@ -107,12 +107,12 @@ const App: React.FC = () => {
   const payload = {
     action: "submitExamMatrix", // Action riêng cho ma trận
     timestamp: new Date().toLocaleString('vi-VN'),
-    exams: activeExam.code,
+    exams: activeExam.examCode,
     sbd: activeStudent.sbd,
     name: activeStudent.name,
     class: activeStudent.class,
     tongdiem: results.score,
-    time: results.timeSpent, // Thời gian làm bài (giây/phút)
+    time: result.time || 0,, // Thời gian làm bài (giây/phút)
     idgv: currentIDGV
   };
 

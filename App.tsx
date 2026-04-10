@@ -153,42 +153,6 @@ const App: React.FC = () => {
 
   // Kết thúc bài thi và gửi dữ liệu từ đề nhập word
  // 1. Phải khai báo hàm này trước
-const handleFinishWord = async (results) => {
-    try {
-        const currentIDGV = activeStudent?.idgv?.toString().trim() || "";
-        const targetUrl = KETQUA_URL;
-
-        const payload = {
-            action: "submitExamWord",
-            timestamp: new Date().toLocaleString('vi-VN'),
-            exams: String(activeExam?.code || "").toUpperCase(),
-            sbd: String(activeStudent?.sbd || ""),
-            name: String(activeStudent?.name || ""),
-            class: String(activeStudent?.class || ""),
-            tongdiem: String(results.score || 0).replace('.', ','),
-            time: results.timeSpent || 0,
-            idgv: currentIDGV
-        };
-
-        console.log("Đang gửi payload đề lẻ:", payload);
-
-        const response = await fetch(targetUrl, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain" },
-            body: JSON.stringify(payload)
-        });
-
-        const resText = await response.text();
-        console.log("Kết quả từ GAS:", resText);
-
-        alert(`Nộp bài thành công! Điểm: ${payload.tongdiem}`);
-        setExamResult(results);
-        setCurrentView('result');
-    } catch (error) {
-        console.error("Lỗi nộp bài đề lẻ:", error);
-        alert("Lỗi kết nối khi nộp bài!");
-    }
-};
  return (
     <AppProvider>
       <div className="min-h-screen flex flex-col font-sans selection:bg-blue-100 bg-slate-50 text-slate-900">
@@ -253,25 +217,6 @@ const handleFinishWord = async (results) => {
               />
             )}
             {/* 5. Giao diện làm bài CHÍNH THỨC (Dành cho học sinh làm đề Word) */}
-{currentView === 'exam' && activeExam && activeStudent && (
-  <ExamRoom 
-    questions={questions}
-    studentInfo={{
-      idgv: activeStudent.idgv, 
-      sbd: activeStudent.sbd,
-      name: activeStudent.name,
-      class: activeStudent.class,
-      examCode: activeExam.code // Mã đề biến đổi 601, 1001...
-    }}
-    duration={activeExam.fullTime}
-    minSubmitTime={activeExam.miniTime}
-    maxTabSwitches={activeExam.tabLimit}
-   scoreMCQ={Number(activeExam.scoreMCQ) || 0.25}
-   scoreTF={Number(activeExam.scoreTF) || 1.0}
-   scoreSA={Number(activeExam.scoreSA) || 0.5}
-   onFinish={handleFinishWord} // Nộp về sheet(ketqua) 7 cột
-  />
-)}
             {/* 6. Kết quả bài thi */}
             {currentView === 'result' && examResult && (
               <ResultView result={examResult} questions={questions} onBack={goHome} />

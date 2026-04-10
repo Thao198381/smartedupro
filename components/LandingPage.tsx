@@ -482,7 +482,7 @@ const handleStudentSubmit = async (e) => {
       setStudentInfo({
         ...studentInfo,
         name: nameFromGas,
-        className: classFromGas
+        class: classFromGas
       });
 
       setExamStarted(true); 

@@ -15,7 +15,6 @@ const MAP_KETQUA = {
   "toan": "https://script.google.com/macros/s/AKfycbw06Dnf2Spsrm19NseYX-mucqa8b8Ayg0ni8B2hZNGVmjb3uoGW7VGkKSnOepKeYFQdGQ/exec",
   "vat-li": "https://script.google.com/macros/s/AKfycbzfpzVFmGoaeB240bzJj-dTagvv6Rt5sYfqPcm0a9GyPxvEuf8z8W65ykS4M-P-KgCu/exec",
   "hoa-hoc": "https://script.google.com/macros/s/...link_hoa.../exec",
-  "hoa-hoc": "https://script.google.com/macros/s/...link_hoa.../exec",
   "sinh-hoc": "https://script.google.com/macros/s/...link_hoa.../exec",
   "ngu-van": "https://script.google.com/macros/s/...link_hoa.../exec",
   "tieng-anh": "https://script.google.com/macros/s/...link_hoa.../exec",
